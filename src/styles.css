@@ -226,3 +226,13 @@ mark { background: var(--warn-soft); color: inherit; padding: 0 .1em; border-rad
 .update-banner { max-width: 1200px; margin: .75rem auto 0; padding: .6rem 1rem; display: flex; gap: .75rem; align-items: center; flex-wrap: wrap; background: var(--ok-soft); color: var(--ok); border: 1px solid var(--ok); border-radius: 10px; margin-left: max(16px, auto); margin-right: max(16px, auto); }
 @media (max-width: 1232px) { .update-banner { margin-left: 16px; margin-right: 16px; } }
 .update-banner a { color: inherit; }
+
+/* ---- dialogs */
+dialog.dlg { border: 0; border-radius: 14px; padding: 0; max-width: min(92vw, 30rem); width: 100%; background: var(--bg-2); color: var(--fg); box-shadow: 0 12px 40px rgba(0,0,0,.35); }
+dialog.dlg::backdrop { background: rgba(10, 20, 30, .55); }
+dialog.dlg .dlg-body { padding: 1.1rem 1.2rem 1rem; }
+dialog.dlg h3 { margin: 0 0 .5rem; font-size: 1.15rem; }
+dialog.dlg.ok h3 { color: var(--ok); }
+dialog.dlg.warn h3 { color: var(--warn); }
+dialog.dlg p { margin: .4rem 0; }
+dialog.dlg .dlg-actions { justify-content: flex-end; margin-top: 1rem; }

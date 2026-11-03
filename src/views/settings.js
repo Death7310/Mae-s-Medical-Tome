@@ -6,7 +6,7 @@ import { pref, setPref, getState } from '../lib/store.js';
 import { app } from '../main.js';
 import { DEFAULT_MODEL, askCoach } from '../lib/aicoach.js';
 import { isNative } from '../lib/native.js';
-import { updates, onUpdates, checkForUpdate, applyUpdate, buildLabel, APK_URL } from '../lib/updates.js';
+import { updates, onUpdates, checkInteractively, applyInteractively, buildLabel, APK_URL } from '../lib/updates.js';
 
 export async function render(root) {
   const sel = (key, options, def) => h('select', { onchange: (e) => setPref(key, isNaN(Number(e.target.value)) ? e.target.value : Number(e.target.value)) }, ...options.map(([v, l]) => h('option', { value: v, selected: String(pref(key, def)) === String(v) }, l)));
@@ -47,8 +47,8 @@ function updatesCard() {
         : a ? h('span', { class: 'notice ok small' }, a.kind === 'apk' ? `Update available: build ${a.sha}, published ${fmtDate(a.publishedAt)}. Tap "Download and install": Android downloads the new APK and asks you to confirm; your book, notes and progress are kept.` : `Update available: ${a.sha}${a.buildNumber ? ` (build ${a.buildNumber})` : ''}, published ${fmtDate(a.builtAt)}. It installs in a few seconds.`)
         : updates.lastCheck ? h('span', { class: 'muted' }, `You have the latest version. Last checked ${fmtDate(updates.lastCheck)}.`)
         : h('span', { class: 'muted' }, 'Not checked yet.'));
-    const checkBtn = h('button', { class: 'btn sm', disabled: updates.checking, onclick: () => checkForUpdate() }, icon('sync'), 'Check for updates');
-    const applyBtn = a ? h('button', { class: 'btn sm primary', onclick: async (e) => { const b = e.target.closest('button'); b.disabled = true; b.textContent = a.kind === 'apk' ? 'Opening installer…' : 'Updating…'; await applyUpdate(); } }, icon('download'), a.kind === 'apk' ? 'Download and install' : 'Update now') : null;
+    const checkBtn = h('button', { class: 'btn sm primary', disabled: updates.checking, onclick: () => checkInteractively() }, icon('sync'), 'Check for updates');
+    const applyBtn = a ? h('button', { class: 'btn sm ok', onclick: () => applyInteractively() }, icon('download'), a.kind === 'apk' ? 'Download and install' : 'Update now') : null;
     actions.replaceChildren(...[checkBtn, applyBtn].filter(Boolean));
   };
   draw();

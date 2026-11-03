@@ -9,7 +9,7 @@ import * as slides from './views/slides.js';
 import * as downloads from './views/downloads.js';
 import * as sync from './views/sync.js';
 import * as settings from './views/settings.js';
-import { updates, onUpdates, autoCheck, applyUpdate } from './lib/updates.js';
+import { updates, onUpdates, autoCheck, applyInteractively } from './lib/updates.js';
 
 const routes = [
   { path: 'home', view: home, label: 'Library', icon: 'home' },
@@ -47,7 +47,7 @@ function drawUpdateBanner() {
   if (!host) return;
   const a = updates.available;
   if (!a) { host.replaceChildren(); return; }
-  const btn = h('button', { class: 'btn sm primary', onclick: async () => { btn.disabled = true; btn.textContent = a.kind === 'apk' ? 'Opening installer…' : 'Updating…'; await applyUpdate(); } }, a.kind === 'apk' ? 'Download and install' : 'Update now');
+  const btn = h('button', { class: 'btn sm primary', onclick: () => applyInteractively() }, a.kind === 'apk' ? 'Download and install' : 'Update now');
   host.replaceChildren(h('div', { class: 'update-banner' }, h('span', {}, a.kind === 'apk' ? `A newer version of the app is available (${a.sha}).` : `A new version is available (${a.sha}). It installs in a few seconds and keeps your data.`), btn, h('a', { href: '#/settings', class: 'small' }, 'Details')));
 }
 

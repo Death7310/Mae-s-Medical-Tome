@@ -28,6 +28,27 @@ export function toast(msg, kind = 'info', ms = 3200) {
   setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 300); }, ms);
 }
 
+/**
+ * Modal dialog. actions: [{ id, label, primary, danger }]. Resolves with the chosen id
+ * ('dismiss' on Escape/backdrop). With no actions it is a progress dialog: call .close().
+ */
+export function dialog({ title, body, actions = [], kind = '' }) {
+  const dlg = h('dialog', { class: `dlg ${kind}` });
+  let resolve;
+  const done = new Promise((r) => { resolve = r; });
+  const close = (id) => { try { dlg.close(); } catch {} dlg.remove(); resolve(id); };
+  dlg.append(
+    h('div', { class: 'dlg-body' },
+      h('h3', {}, title),
+      typeof body === 'string' ? h('p', {}, body) : body,
+      actions.length ? h('div', { class: 'row dlg-actions' }, ...actions.map((a) => h('button', { class: `btn${a.primary ? ' primary' : ''}${a.danger ? ' danger' : ''}`, autofocus: a.primary || null, onclick: () => close(a.id) }, a.label))) : null));
+  dlg.addEventListener('cancel', (e) => { e.preventDefault(); if (actions.length) close('dismiss'); });
+  dlg.addEventListener('click', (e) => { if (e.target === dlg && actions.length) close('dismiss'); });
+  document.body.append(dlg);
+  if (typeof dlg.showModal === 'function') dlg.showModal(); else dlg.setAttribute('open', '');
+  return { done, close: () => close('closed'), el: dlg };
+}
+
 export const fmtBytes = (n) => (n < 1024 ? `${n} B` : n < 1048576 ? `${(n / 1024).toFixed(0)} KB` : `${(n / 1048576).toFixed(1)} MB`);
 export const fmtDate = (ts) => (ts ? new Date(ts).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : 'never');
 export const escapeHtml = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
