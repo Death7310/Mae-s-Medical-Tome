@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Mae\'s Medical Tome</string>
+    <string name="title_activity_main">Mae\'s Medical Tome</string>
+    <string name="package_name">com.mae.medicaltome</string>
+    <string name="custom_url_scheme">com.mae.medicaltome</string>
+</resources>

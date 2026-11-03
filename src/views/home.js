@@ -2,6 +2,7 @@ import { h, icon } from '../lib/ui.js';
 import { content, allDecks } from '../lib/content.js';
 import { getState, countOn, onChange } from '../lib/store.js';
 import { app } from '../main.js';
+import { isNative } from '../lib/native.js';
 
 export async function render(root) {
   const draw = () => {
@@ -66,7 +67,7 @@ export async function render(root) {
 }
 
 function installButton() {
-  if (matchMedia('(display-mode: standalone)').matches) return null;
+  if (isNative() || matchMedia('(display-mode: standalone)').matches) return null;
   if (app.installPrompt) {
     return h('button', { class: 'btn', onclick: async () => { app.installPrompt.prompt(); await app.installPrompt.userChoice; app.installPrompt = null; } }, icon('download'), 'Install app');
   }

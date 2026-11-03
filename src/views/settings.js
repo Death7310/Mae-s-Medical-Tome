@@ -5,6 +5,7 @@ import { extractTextPerPage } from '../lib/pdf.js';
 import { pref, setPref, getState } from '../lib/store.js';
 import { app } from '../main.js';
 import { DEFAULT_MODEL, askCoach } from '../lib/aicoach.js';
+import { isNative } from '../lib/native.js';
 
 export async function render(root) {
   const sel = (key, options, def) => h('select', { onchange: (e) => setPref(key, isNaN(Number(e.target.value)) ? e.target.value : Number(e.target.value)) }, ...options.map(([v, l]) => h('option', { value: v, selected: String(pref(key, def)) === String(v) }, l)));
@@ -53,6 +54,7 @@ export async function render(root) {
 }
 
 function installBlock() {
+  if (isNative()) return h('p', { class: 'notice ok' }, 'You are using the Android app. Updates: download the newest APK from the project\'s Releases page and install it over this one; your data is kept.');
   if (matchMedia('(display-mode: standalone)').matches) return h('p', { class: 'notice ok' }, 'Installed. You are running the app in its own window.');
   const items = [
     ['Windows (Edge or Chrome)', 'Open this page, then click the install icon at the right end of the address bar (or menu → Apps → Install Mae\'s Medical Tome). It gets a Start-menu entry and its own window.'],

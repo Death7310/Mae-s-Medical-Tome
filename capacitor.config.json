@@ -2,5 +2,11 @@
   "appId": "com.mae.medicaltome",
   "appName": "Mae's Medical Tome",
   "webDir": "dist",
-  "android": { "allowMixedContent": false }
+  "android": {
+    "allowMixedContent": false,
+    "backgroundColor": "#0b3d5c"
+  },
+  "server": {
+    "androidScheme": "https"
+  }
 }

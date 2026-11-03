@@ -2,6 +2,7 @@ import QRCode from 'qrcode';
 import { h, icon, toast, copyText, downloadBlob, fmtDate, fmtBytes } from '../lib/ui.js';
 import { getState, replaceState, logSync, pref, setPref } from '../lib/store.js';
 import { encodeState, decodeState, mergeState, splitForQr, createChunkCollector } from '../lib/sync.js';
+import { isNative, shareText } from '../lib/native.js';
 
 export async function render(root) {
   const st = getState();
@@ -30,7 +31,7 @@ export async function render(root) {
   const exportBtns = h('div', { class: 'row' },
     h('button', { class: 'btn primary', onclick: generate }, icon('sync'), 'Create sync code'),
     h('button', { class: 'btn', disabled: true, onclick: async () => toast((await copyText(code)) ? 'Code copied. Paste it into an e-mail or message to yourself.' : 'Copy failed. Select the text and copy it manually.', 'ok') }, icon('copy'), 'Copy'),
-    navigator.share ? h('button', { class: 'btn', disabled: true, onclick: () => navigator.share({ title: 'Medical Tome sync code', text: code }).catch(() => {}) }, icon('share'), 'Share…') : null,
+    (navigator.share || isNative()) ? h('button', { class: 'btn', disabled: true, onclick: () => (isNative() ? shareText('Medical Tome sync code', code) : navigator.share({ title: 'Medical Tome sync code', text: code })).catch(() => {}) }, icon('share'), 'Share…') : null,
     emailBtn,
     h('button', { class: 'btn', disabled: true, onclick: () => downloadBlob(new Blob([code], { type: 'text/plain' }), `medical-tome-sync-${new Date().toISOString().slice(0, 10)}.mmt.txt`) }, icon('download'), 'Save as file'),
     h('button', { class: 'btn', disabled: true, onclick: () => showQr(qrHost, code) }, icon('qr'), 'Show QR'));

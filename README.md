@@ -5,8 +5,8 @@ An offline-first study app that holds **the book**, **the lecture slides**, and 
 | Platform | How it runs |
 | --- | --- |
 | Windows 10/11 | Installable app from Edge or Chrome (Progressive Web App). Own window, Start-menu entry, works offline. |
-| Android | Installable from Chrome ("Add to Home screen" / "Install app"). Optional APK via Capacitor (see `docs/NATIVE-PACKAGING.md`). |
-| Huawei / HarmonyOS | Installable from Huawei Browser ("Add to → Home screen"). No Google services required. The same optional APK sideloads or ships through AppGallery. |
+| Android | Installable from Chrome ("Add to Home screen" / "Install app"), or the APK built by CI: `https://github.com/Death7310/Mae-s-Medical-Tome/releases/latest/download/maes-medical-tome.apk` |
+| Huawei / HarmonyOS | Installable from Huawei Browser ("Add to → Home screen"), or the same APK. No Google services required. |
 
 ## What it does
 
@@ -52,6 +52,11 @@ content/
 `npm run content -- --ids` prints every section id you can link to.
 
 The repository ships with a short sample volume on cardiovascular physiology and a nine-slide deck so the whole pipeline can be seen working. Replace them.
+
+## Links
+
+- Web app (GitHub Pages, once enabled in the repository settings): `https://death7310.github.io/Mae-s-Medical-Tome/`
+- Android / Huawei APK (rebuilt on every push): `https://github.com/Death7310/Mae-s-Medical-Tome/releases/latest/download/maes-medical-tome.apk`
 
 ## Deploying
 
