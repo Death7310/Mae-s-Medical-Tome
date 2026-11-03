@@ -10,6 +10,8 @@ An offline-first study app that holds **the book**, **the lecture slides**, and 
 
 ## What it does
 
+- **Teach it back, on every slide and every section**: the learner writes the explanation first, in their own English. The coach checks it against the book sections the slide rests on and reports which key ideas are covered, which are missing (named, not answered), how many of the book's terms were used, and what to fix in the writing: run-on sentences, missing capitals, spelling, vague words, hedging, facts listed without a mechanism. Hints get stronger with each attempt; the model answer unlocks only after three attempts or a complete answer. The written explanation of a slide is held back until the learner has tried.
+- **Optional AI coach**: with the learner's own Anthropic API key, a Claude model reads the answer and the linked passages only, and gives Socratic feedback under the same no-answer rule, including quoted grammar corrections. Off by default; the offline check needs nothing.
 - **Book reader**: chapters split into addressable sections, with bookmarks, "studied" marks and per-section notes. Each section shows which slides rest on it.
 - **Slide study view**: renders each deck's PDF page by page. Beside each slide: the book sections it is linked to, an explanation written against the book text, and the full section text one tap away. Unlinked slides get ranked suggestions from a full-text search of the book, and you can link them yourself.
 - **Downloads**: the book as PDF, EPUB, ZIP, HTML and Markdown; each deck as PDF and PPTX; all generated from one source so they never disagree. Any file can be kept inside the app for offline use or shared to another app.
@@ -59,6 +61,10 @@ The repository ships with a short sample volume on cardiovascular physiology and
 
 Any static host works (Netlify, Cloudflare Pages, a folder on a web server). Set `VITE_BASE` to the sub-path if the app is not at the root of the domain.
 
+## How the coaching works, and its limits
+
+The built-in check is deterministic and explainable. Authors write a question and a short rubric per slide in `links.md` (one line per key idea, with the words that count as covering it and a hint). Coverage is pattern matching against that rubric; terminology is measured against the terms that distinguish the linked section from the rest of the book; writing checks are rules. It cannot judge whether a paragraph is *true* beyond the rubric, and it cannot catch every grammatical error. That is what the optional AI coach is for, and why the model answer is there to compare against. Rubrics are the lever: a slide with a good rubric coaches well, a slide without one falls back to terminology and writing checks only.
+
 ## How sync works, and its limits
 
 The sync code is your study data serialised to JSON, compressed, base64url-encoded and wrapped as `MMT1.<checksum>.<payload>.`. Typical size is a few hundred characters to a few kilobytes. It is not encrypted; treat it like the notes it contains. Merging is per item by timestamp, so syncing in both directions whenever you switch devices keeps both in step. What is **not** in the code: the PDFs themselves (built-in ones are the same on every device; imported ones must be imported on each device) and appearance settings.
@@ -72,11 +78,13 @@ scripts/build-content.mjs   content pipeline: Markdown -> JSON, HTML, EPUB, ZIP,
 scripts/smoke.mjs           end-to-end smoke test
 src/main.js                 shell + hash router + service-worker registration
 src/lib/sync.js             sync code codec, merge, QR chunking (pure, unit-tested)
+src/lib/coach.js            coaching engine: rubric matching, key-term extraction, writing checks, hints (pure, unit-tested)
+src/lib/aicoach.js          optional Claude API coach (learner's own key, browser-direct)
 src/lib/search.js           BM25 index used for "Find in book"
 src/lib/store.js            IndexedDB-backed state with timestamps
 src/lib/content.js          loads built content; imported decks
 src/lib/pdf.js              pdf.js wrapper
-src/views/*.js              home, reader, slides, downloads, sync, settings
+src/views/*.js              home, reader, slides, practice (teach-it-back box), downloads, sync, settings
 vite.config.js              PWA manifest and offline caching rules
 ```
 

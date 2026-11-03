@@ -26,7 +26,7 @@ export async function render(root) {
       h('div', { class: 'stat' }, h('b', {}, `${studiedSections}/${totalSections}`), h('span', { class: 'muted small' }, 'sections studied')),
       h('div', { class: 'stat' }, h('b', {}, String(countOn('studied', 'slide:'))), h('span', { class: 'muted small' }, 'slides studied')),
       h('div', { class: 'stat' }, h('b', {}, String(Object.values(st.notes).filter((n) => n.text?.trim()).length)), h('span', { class: 'muted small' }, 'notes')),
-      h('div', { class: 'stat' }, h('b', {}, String(countOn('bookmarks', ''))), h('span', { class: 'muted small' }, 'bookmarks')),
+      h('div', { class: 'stat' }, h('b', {}, String(Object.values(st.practice || {}).filter((p) => p.mastered).length)), h('span', { class: 'muted small' }, 'explained in your own words')),
     ));
 
     const chapters = h('div', { class: 'card' }, h('h2', {}, 'Chapters'),
@@ -50,7 +50,8 @@ export async function render(root) {
     const how = h('div', { class: 'card' }, h('h2', {}, 'How this app works'),
       h('ul', { class: 'small' },
         h('li', {}, h('b', {}, 'Book'), ': read chapter by chapter. Mark sections studied, bookmark them and keep notes.'),
-        h('li', {}, h('b', {}, 'Slides'), ': every slide shows the book sections it rests on and an explanation written against the book text. Unlinked slides get suggested sections from a full-text search of the book, and you can link them yourself.'),
+        h('li', {}, h('b', {}, 'Slides'), ': every slide asks you to explain it in writing first. The coach checks your answer against the book sections the slide rests on, points at what is missing without telling you, checks the English, and only then shows the explanation written against the book.'),
+        h('li', {}, h('b', {}, 'Teach it back'), ': every book section has the same exercise. Explaining from memory, then correcting, is what makes it stick.'),
         h('li', {}, h('b', {}, 'Downloads'), ': the book as PDF, EPUB, ZIP, HTML and Markdown; each deck as PDF and PPTX. Save them for offline use.'),
         h('li', {}, h('b', {}, 'Sync'), ': no account and no server. Export your notes and progress as a code, send it to your other device by e-mail, chat or QR, and import it there.'),
       ));

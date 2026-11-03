@@ -2,6 +2,8 @@ import { h, icon, toast, escapeHtml } from '../lib/ui.js';
 import { content, allDecks, deckById, sectionByRef, suggestSections, importedBlob, url } from '../lib/content.js';
 import { getState, isOn, toggle, noteOf, setNote, setProgress, setUserLinks, userLinksOf, onChange } from '../lib/store.js';
 import { openPdf, renderPage } from '../lib/pdf.js';
+import { practiceBox } from './practice.js';
+import { practiceOf } from '../lib/store.js';
 
 export async function render(root, params) {
   const decks = allDecks();
@@ -10,7 +12,7 @@ export async function render(root, params) {
   if (!deck) { root.replaceChildren(h('div', { class: 'card' }, h('p', {}, 'Deck not found. '), h('a', { href: '#/slides' }, 'All decks'))); return; }
   const total = deck.slides.length || 1;
   let n = Math.min(Math.max(parseInt(params[1], 10) || getState().progress.lastSlides?.slide || 1, 1), total);
-  let tab = sessionStorage.getItem('mmt:slideTab') || 'explain';
+  let tab = sessionStorage.getItem('mmt:slideTab') || 'practice';
 
   // ---- stage
   const canvas = h('canvas', { 'aria-label': 'Slide image' });
@@ -67,17 +69,33 @@ export async function render(root, params) {
     const sid = `slide:${deck.id}#${n}`;
     const built = s.sections || [];
     const user = userLinksOf(sid).filter((r) => !built.includes(r));
-    const tabs = h('div', { class: 'tabs' }, ...[['explain', `Explanation${built.length + user.length ? ` (${built.length + user.length})` : ''}`], ['suggest', 'Find in book'], ['notes', 'Notes']].map(([k, label]) => h('button', { class: k === tab ? 'active' : '', onclick: () => { tab = k; sessionStorage.setItem('mmt:slideTab', k); drawPanel(); } }, label)));
+    const pr = practiceOf(sid);
+    const tabs = h('div', { class: 'tabs' }, ...[['practice', `Practice${pr?.mastered ? ' ✓' : ''}`], ['explain', `Explanation${built.length + user.length ? ` (${built.length + user.length})` : ''}`], ['suggest', 'Find in book'], ['notes', 'Notes']].map(([k, label]) => h('button', { class: k === tab ? 'active' : '', onclick: () => { tab = k; sessionStorage.setItem('mmt:slideTab', k); drawPanel(); } }, label)));
     let body;
-    if (tab === 'explain') body = explainTab(s, sid, built, user);
+    if (tab === 'practice') body = practiceTab(s, sid, built, user);
+    else if (tab === 'explain') body = explainTab(s, sid, built, user);
     else if (tab === 'suggest') body = suggestTab(s, sid, built, user);
     else body = notesTab(s, sid);
     panel.replaceChildren(h('div', { class: 'row', style: { justifyContent: 'space-between', marginBottom: '.25rem' } }, h('strong', {}, s.title || `Slide ${n}`), h('span', { class: 'row' }, smallToggle('studied', sid, 'check', 'Studied'), smallToggle('bookmarks', sid, 'star', ''))), tabs, body);
   }
 
+  function practiceTab(s, sid, built, user) {
+    let refs = [...built, ...user];
+    if (!refs.length && s.text?.trim()) refs = suggestSections(`${s.title || ''}\n${s.text}`, 2).filter((x) => x.section && x.rel > 0.5).map((x) => x.ref);
+    const frag = document.createDocumentFragment();
+    frag.append(practiceBox({ id: sid, studyId: sid, kind: 'slide', title: s.title, question: s.practice?.question, keyPoints: s.practice?.keyPoints || [], sectionRefs: refs, modelHtml: s.practice?.modelHtml || '' }));
+    frag.append(h('p', { class: 'muted small', style: { marginTop: '.75rem' } }, 'Method: write first, check, read the hint, rewrite. Open the Explanation tab only after an attempt; that is when it sticks.'));
+    return frag;
+  }
+
   function explainTab(s, sid, built, user) {
     const frag = document.createDocumentFragment();
-    if (s.explanationHtml) frag.append(h('div', { class: 'explain' }, h('h4', {}, 'Explanation, following the book'), h('div', { html: s.explanationHtml })));
+    const attempted = (practiceOf(sid)?.attempts || 0) > 0;
+    if (s.explanationHtml && (attempted || !s.practice?.question)) frag.append(h('div', { class: 'explain' }, h('h4', {}, 'Explanation, following the book'), h('div', { html: s.explanationHtml })));
+    else if (s.explanationHtml) {
+      const d = h('details', { class: 'explain gated' }, h('summary', {}, 'Explanation is waiting. Try the Practice tab first, then open this.'), h('div', { html: s.explanationHtml }));
+      frag.append(d, h('p', { class: 'small' }, h('a', { href: '#', onclick: (e) => { e.preventDefault(); tab = 'practice'; sessionStorage.setItem('mmt:slideTab', 'practice'); drawPanel(); } }, 'Go to Practice →')));
+    }
     const refs = [...built.map((r) => ({ r, user: false })), ...user.map((r) => ({ r, user: true }))];
     if (!refs.length) {
       frag.append(h('p', { class: 'muted' }, 'This slide has no book links yet. Open ', h('a', { href: '#', onclick: (e) => { e.preventDefault(); tab = 'suggest'; drawPanel(); } }, 'Find in book'), ' to see the sections that best match its text and link them.'));

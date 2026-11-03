@@ -60,13 +60,40 @@ async function run(label, viewport) {
   await shot(page, `${label}-reader.png`);
 
   await page.goto(base + '#/slides/cv-physiology/6');
-  await page.waitForSelector('.panel .linked-sec');
+  await page.waitForSelector('.panel .practice textarea.answer');
   await page.waitForFunction(() => { const c = document.querySelector('.stage canvas'); return c && c.width > 50; });
   check(true, `${label}: slide 6 PDF page rendered to canvas`);
-  check((await page.locator('.explain').count()) === 1, `${label}: explanation shown for slide 6`);
+  check(/first and second heart sounds/.test(await page.locator('.practice .question').textContent()), `${label}: authored practice question shown first`);
+  // explanation is held back until an attempt
+  await page.locator('.tabs button', { hasText: 'Explanation' }).click();
+  check((await page.locator('.explain.gated').count()) === 1 && (await page.locator('.explain:not(.gated)').count()) === 0, `${label}: explanation gated before any attempt`);
   check((await page.locator('.linked-sec h4').first().textContent()) === 'Heart sounds', `${label}: slide 6 links to "Heart sounds"`);
+  await page.locator('.tabs button', { hasText: 'Practice' }).click();
+  // weak answer: coaching, no answer leak
+  await page.locator('.practice textarea.answer').fill('heart sounds are made by the heart beating and stuff');
+  await page.locator('.practice button', { hasText: 'Check my answer' }).click();
+  await page.waitForSelector('.practice .feedback .notice');
+  const fb1 = await page.locator('.practice .feedback').textContent();
+  check(/Starting/.test(fb1), `${label}: weak answer rated "Starting"`);
+  check((await page.locator('.practice .hint').count()) === 1 && !/mitral|tricuspid|aortic/i.test(await page.locator('.practice .hint').textContent()), `${label}: hint given without revealing the answer`);
+  check((await page.locator('.practice details.model').count()) === 0, `${label}: model answer locked on attempt 1`);
+  check(/capital letter/.test(fb1) && /vague/.test(fb1) && /Only \d+ words/.test(fb1), `${label}: writing feedback covers capitals, vague wording and length`);
+  check(/Key ideas: 0 of 5/.test(fb1), `${label}: coverage shows 0 of 5 key ideas`);
+  await shot(page, `${label}-practice-weak.png`);
+  // strong answer
+  await page.locator('.practice textarea.answer').fill('S1, the first heart sound, is produced by closure of the mitral and tricuspid valves. It marks the start of ventricular systole, because the valves shut once ventricular pressure exceeds atrial pressure. S2 is produced by closure of the aortic and pulmonary valves at the start of diastole. S3 occurs in early diastole during rapid filling and is normal in children but suggests volume overload in older adults. S4 occurs in late diastole when the atrium contracts into a stiff ventricle.');
+  await page.locator('.practice button', { hasText: 'Check my answer' }).click();
+  await page.waitForFunction(() => /Clear and complete/.test(document.querySelector('.practice .feedback')?.textContent || ''));
+  check(true, `${label}: strong answer rated "Clear and complete"`);
+  check((await page.locator('.practice details.model').count()) === 1, `${label}: model answer unlocked after a complete answer`);
+  check((await page.locator('.practice button', { hasText: 'Mark as studied' }).count()) === 1, `${label}: mark-as-studied offered`);
+  check(/mastered/.test(await page.locator('.practice .chip.ok', { hasText: 'mastered' }).textContent()), `${label}: mastered badge`);
+  await shot(page, `${label}-practice-strong.png`);
+  await page.locator('.tabs button', { hasText: 'Explanation' }).click();
+  check((await page.locator('.explain:not(.gated)').count()) === 1, `${label}: explanation opens after an attempt`);
   await noOverflow(page, `${label} slides`);
   await shot(page, `${label}-slides.png`);
+  await page.locator('.stage .counter').click();
   await page.keyboard.press('ArrowRight');
   await page.waitForFunction(() => location.hash.endsWith('/7'));
   check(true, `${label}: arrow key advances to slide 7`);
@@ -122,7 +149,22 @@ async function run(label, viewport) {
   check((await p2.locator('.panel textarea').inputValue()) === 'MAP = DBP + PP/3', `${label}: note arrived on the second device`);
   await p2.goto(base + '#/read/cardiac-cycle/heart-sounds');
   check(await p2.locator('#sec-heart-sounds [data-toggle^="studied"]').evaluate((b) => b.classList.contains('on')), `${label}: studied flag arrived on the second device`);
+  await p2.goto(base + '#/slides/cv-physiology/6');
+  await p2.locator('.tabs button', { hasText: 'Practice' }).click();
+  await p2.waitForSelector('.practice textarea.answer');
+  check(/mitral and tricuspid/.test(await p2.locator('.practice textarea.answer').inputValue()) && (await p2.locator('.practice .chip', { hasText: 'mastered' }).count()) === 1, `${label}: written answer and mastery arrived on the second device`);
   await ctx2.close();
+
+  // reader: teach it back
+  await page.goto(base + '#/read/blood-pressure/the-haemodynamic-equation');
+  await page.locator('#sec-the-haemodynamic-equation button', { hasText: 'Teach it back' }).click();
+  await page.waitForSelector('#sec-the-haemodynamic-equation .practice textarea');
+  await page.locator('#sec-the-haemodynamic-equation .practice textarea').fill('Mean arterial pressure equals cardiac output times total peripheral resistance, because flow through the circulation is pressure divided by resistance. Arterioles dominate resistance since resistance varies with the inverse fourth power of the radius, so halving the radius raises resistance sixteen-fold.');
+  await page.locator('#sec-the-haemodynamic-equation .practice button', { hasText: 'Check my answer' }).click();
+  await page.waitForSelector('#sec-the-haemodynamic-equation .practice .feedback .notice');
+  const tb = await page.locator('#sec-the-haemodynamic-equation .practice .feedback').textContent();
+  check(/Book terminology used: [3-9]|1\d of/.test(tb), `${label}: teach-it-back scores terminology against the section (${(tb.match(/terminology used: \d+ of \d+/) || [''])[0]})`);
+  await shot(page, `${label}-teachback.png`);
 
   await page.goto(base + '#/settings');
   await page.waitForSelector('h1');

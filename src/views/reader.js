@@ -1,6 +1,7 @@
 import { h, icon, toast } from '../lib/ui.js';
 import { content, chapterById, slidesForSection } from '../lib/content.js';
-import { getState, isOn, toggle, noteOf, setNote, setProgress, onChange } from '../lib/store.js';
+import { getState, isOn, toggle, noteOf, setNote, setProgress, onChange, practiceOf } from '../lib/store.js';
+import { practiceBox } from './practice.js';
 
 export async function render(root, params) {
   const book = content.book;
@@ -51,7 +52,15 @@ function sectionEl(chapter, s) {
   const notesBox = h('div', { class: 'sec-notes', style: { display: noteOf(id) ? 'block' : 'none' } },
     h('textarea', { placeholder: 'Your notes for this section…', oninput: (e) => setNote(id, e.target.value) }, noteOf(id)));
   const covering = slidesForSection(ref, getState().userLinks);
+  const practiceHost = h('div', { class: 'sec-practice' });
+  const pr = practiceOf(`practice:${ref}`);
+  const teachBtn = h('button', { class: `btn sm${pr?.mastered ? ' on' : ''}`, onclick: () => {
+    if (practiceHost.childElementCount) { practiceHost.replaceChildren(); return; }
+    practiceHost.replaceChildren(practiceBox({ id: `practice:${ref}`, studyId: id, kind: 'section', title: s.title, sectionRefs: [ref] }));
+    practiceHost.querySelector('textarea')?.focus();
+  } }, icon('slides'), pr?.mastered ? 'Teach it back ✓' : 'Teach it back');
   const tools = h('div', { class: 'sec-tools' },
+    /^references$/i.test(s.title) ? null : teachBtn,
     toggleBtn('studied', id, 'check', 'Studied'),
     toggleBtn('bookmarks', id, 'star', 'Bookmark'),
     h('button', { class: 'btn sm', onclick: () => { notesBox.style.display = notesBox.style.display === 'none' ? 'block' : 'none'; notesBox.querySelector('textarea').focus(); } }, 'Notes'),
@@ -64,7 +73,7 @@ function sectionEl(chapter, s) {
   const h2 = body.querySelector('h2');
   const sec = h('section', { id: `sec-${s.id}`, dataset: { sec: s.id } });
   if (h2) { sec.append(h2); }
-  sec.append(tools, body, notesBox);
+  sec.append(tools, body, practiceHost, notesBox);
   return sec;
 }
 

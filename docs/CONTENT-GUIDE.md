@@ -100,9 +100,45 @@ Two formulas, two ideas…
 - Everything after is the explanation, in Markdown. Write it **against the book**: what the slide compresses, what the section adds, where the exam question usually goes. Keep it to a paragraph or two; the full section text is one tap away in the app.
 - Slides without a block still work; the app offers suggestions and users can add their own links on-device.
 
-## 4. Checking the result
+## 4. Practice questions and rubrics (the coaching layer)
+
+Add three optional sub-sections to a slide's block in `links.md`:
+
+```markdown
+## Slide 6
+sections: cardiac-cycle#heart-sounds
+
+Explanation text as before…
+
+### Question
+Explain what produces the first and second heart sounds and when each occurs.
+
+### Key points
+- What causes S1: s1|first heart sound + clos + mitral|tricuspid|atrioventricular|av valve >> Valves make a sound when they do one thing, not the other.
+- What causes S2: s2|second heart sound + clos + aortic|pulmonary|semilunar
+- When each occurs: systole + diastole >> Each sound marks the start of a phase. Which?
+
+### Model answer
+S1 is produced by closure of the mitral and tricuspid valves and marks the start of ventricular systole…
+```
+
+How a key point line works:
+
+- `label:` is what the learner sees ("What causes S1"). Write it as the *dimension*, never the answer.
+- The pattern after the colon has **groups** separated by `+`. A key point counts as covered only when **every** group is present in the answer.
+- Inside a group, `|` separates **alternatives**; any one of them satisfies the group. Matching is case-insensitive and word-start based, so `clos` matches "closure", "closes" and "closing".
+- `>> hint` is shown on the second attempt. Make it a pointer, not the content ("Which pressure rises above which?").
+- Choose groups so that a correct answer in natural wording passes: list synonyms, abbreviations and both spellings (haemo/hemo). Test your rubric by pasting the model answer into the app; it must score every point.
+- Two to six key points per slide is right. The model answer should itself cover all of them in plain, well-formed sentences; it is what the learner compares against after three attempts.
+
+Slides without a `### Question` still get a practice box: a generic "explain this slide" prompt, scored on the terminology of the linked sections and on writing quality. Every book section gets the same treatment under its **Teach it back** button. Authored rubrics coach noticeably better, so write them for the slides that matter most.
+
+Writing checks are rules (length, run-on sentences, capitals, terminal punctuation, a spelling list, "could of", vague words, hedging, missing causal connectives, heavy passive voice). You can extend the spelling list in `src/lib/coach.js`.
+
+## 5. Checking the result
 
 ```bash
 npm run content          # warnings list unknown section ids and slides without text
 npm run build && node scripts/smoke.mjs --shots shots/   # end-to-end check with screenshots
+npm test                 # includes the coaching engine's unit tests
 ```

@@ -2,7 +2,7 @@
 import { get, set } from 'idb-keyval';
 
 const KEY = 'mmt:state:v1';
-const EMPTY = () => ({ notes: {}, bookmarks: {}, studied: {}, progress: {}, userLinks: {}, prefs: {}, syncLog: [] });
+const EMPTY = () => ({ notes: {}, bookmarks: {}, studied: {}, progress: {}, userLinks: {}, practice: {}, prefs: {}, syncLog: [] });
 let state = EMPTY();
 const bus = new EventTarget();
 let saveTimer = null;
@@ -45,6 +45,9 @@ export const setUserLinks = (slideId, sections) => update((s) => { s.userLinks[s
 export const userLinksOf = (slideId) => state.userLinks[slideId]?.sections || [];
 export const pref = (k, d) => (state.prefs[k] === undefined ? d : state.prefs[k]);
 export const setPref = (k, v) => update((s) => { s.prefs[k] = v; });
+// practice[id] = { answer, attempts, band, covered, total, mastered, updatedAt }
+export const practiceOf = (id) => state.practice[id] || null;
+export const savePractice = (id, patch) => update((s) => { s.practice[id] = { ...(s.practice[id] || { attempts: 0 }), ...patch, updatedAt: Date.now() }; });
 export const logSync = (entry) => update((s) => { s.syncLog = [{ at: Date.now(), ...entry }, ...(s.syncLog || [])].slice(0, 20); });
 
 export function countOn(coll, prefix) {

@@ -1,11 +1,12 @@
 /** Loads built content (book, decks, manifest) and manages user-imported decks. */
 import { get, set, del } from 'idb-keyval';
 import { buildIndex } from './search.js';
+import { buildDfIndex, extractKeyTerms } from './coach.js';
 
 export const BASE = import.meta.env.BASE_URL.endsWith('/') ? import.meta.env.BASE_URL : import.meta.env.BASE_URL + '/';
 export const url = (rel) => BASE + rel.replace(/^\//, '');
 
-export const content = { book: null, decks: [], manifest: null, sections: new Map(), index: null, imported: [] };
+export const content = { book: null, decks: [], manifest: null, sections: new Map(), index: null, imported: [], dfIndex: null };
 
 export async function loadContent() {
   const [book, decks, manifest] = await Promise.all([
@@ -26,6 +27,7 @@ export async function loadContent() {
     }
   }
   content.index = buildIndex(docs);
+  content.dfIndex = buildDfIndex(docs.map((d) => d.text));
   content.imported = (await get('mmt:imported')) || [];
   return content;
 }
@@ -52,6 +54,15 @@ export function slidesForSection(ref, userLinks = {}) {
 export function suggestSections(text, k = 5) {
   if (!content.index || !text?.trim()) return [];
   return content.index.search(text, k).map((r) => ({ ...r, ...sectionByRef(r.id) }));
+}
+
+/** Key terminology and plain text for a set of section refs (used by the coach). */
+export function coachMaterial(refs, k = 10) {
+  const hits = refs.map(sectionByRef).filter(Boolean);
+  const texts = hits.map((h) => h.section.text);
+  const terms = [];
+  for (const t of texts) for (const term of extractKeyTerms(t, content.dfIndex, Math.ceil(k / Math.max(hits.length, 1)) + 2)) if (!terms.includes(term)) terms.push(term);
+  return { texts, terms: terms.slice(0, k), titles: hits.map((h) => h.section.title) };
 }
 
 // ---- imported decks (PDF chosen by the user, stored locally, never synced as binary)

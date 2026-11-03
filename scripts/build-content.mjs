@@ -17,6 +17,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Marked } from 'marked';
 import JSZip from 'jszip';
+import { parseKeyPoint } from '../src/lib/coach.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const CONTENT = path.join(ROOT, 'content');
@@ -284,7 +285,20 @@ export function parseLinksMd(src) {
     const sm = /^sections:\s*(.*)$/im.exec(block);
     const sections = sm ? sm[1].split(',').map((s) => s.trim()).filter(Boolean) : [];
     if (sm) block = block.replace(sm[0], '').trim();
-    out[n] = { sections, markdown: block };
+    // Optional practice sub-sections: ### Question / ### Key points / ### Hints / ### Model answer
+    const subs = block.split(/^###\s+(.+?)\s*$/m);
+    const explanation = subs[0].trim();
+    const practice = {};
+    for (let j = 1; j < subs.length; j += 2) {
+      const name = subs[j].trim().toLowerCase();
+      const text = subs[j + 1].trim();
+      const items = text.split(/\r?\n/).map((l) => l.replace(/^\s*[-*]\s+/, '').trim()).filter((l) => l && !/^\s*[-*]?\s*$/.test(l));
+      if (name.startsWith('question')) practice.question = text;
+      else if (name.startsWith('key')) practice.keyPoints = items.map(parseKeyPoint);
+      else if (name.startsWith('hint')) practice.hints = items;
+      else if (name.startsWith('model')) practice.model = text;
+    }
+    out[n] = { sections, markdown: explanation, practice: Object.keys(practice).length ? practice : null };
   }
   return out;
 }
@@ -422,10 +436,15 @@ async function buildDecks(book) {
         else warn(`${id} slide ${s.number}: unknown section "${ref}"`);
       }
       s.explanationHtml = md(l.markdown);
+      if (l.practice) {
+        s.practice = { question: l.practice.question || '', keyPoints: l.practice.keyPoints || [], hints: l.practice.hints || [], modelHtml: l.practice.model ? md(l.practice.model) : '' };
+        for (const kp of s.practice.keyPoints) if (!kp.pattern) warn(`${id} slide ${s.number}: key point "${kp.label}" has no pattern`);
+      }
     }
     for (const n of Object.keys(links)) if (Number(n) > deck.slides.length) warn(`${id}: links.md refers to slide ${n} but the deck has ${deck.slides.length}`);
     const linked = deck.slides.filter((s) => s.sections.length).length;
-    log(`  ${deck.slides.length} slides, ${linked} linked to the book`);
+    const withQ = deck.slides.filter((s) => s.practice?.question).length;
+    log(`  ${deck.slides.length} slides, ${linked} linked to the book, ${withQ} with authored practice questions`);
     decks.push(deck);
   }
   return decks;

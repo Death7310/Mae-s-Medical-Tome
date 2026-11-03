@@ -15,7 +15,7 @@ import { deflateSync, inflateSync, strToU8, strFromU8 } from 'fflate';
 
 export const CODE_PREFIX = 'MMT1';
 export const CHUNK_PREFIX = 'MMTQ';
-export const SYNC_COLLECTIONS = ['notes', 'bookmarks', 'studied', 'progress', 'userLinks'];
+export const SYNC_COLLECTIONS = ['notes', 'bookmarks', 'studied', 'progress', 'userLinks', 'practice'];
 
 // ---- base64url without Buffer/btoa differences
 const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';

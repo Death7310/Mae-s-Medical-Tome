@@ -15,7 +15,7 @@ export async function render(root) {
   const generate = () => {
     code = encodeState(getState(), pref('deviceName', ''));
     codeBox.value = code;
-    info.textContent = `${code.length} characters (${fmtBytes(code.length)}). Contains notes, bookmarks, studied marks, reading position and your slide links. Not your PDFs.`;
+    info.textContent = `${code.length} characters (${fmtBytes(code.length)}). Contains notes, written answers and attempts, bookmarks, studied marks, reading position and your slide links. Not your PDFs or API key.`;
     exportBtns.querySelectorAll('button').forEach((b) => (b.disabled = false));
     qrHost.replaceChildren();
     logSync({ kind: 'export', device: pref('deviceName', '') });
@@ -50,7 +50,7 @@ export async function render(root) {
     let incoming;
     try { incoming = decodeState(pasteBox.value); } catch (e) { preview.append(h('p', { class: 'notice warn' }, e.message)); return; }
     const { merged, summary } = mergeState(getState(), incoming);
-    const names = { notes: 'notes', bookmarks: 'bookmarks', studied: 'studied marks', progress: 'positions', userLinks: 'slide links' };
+    const names = { notes: 'notes', bookmarks: 'bookmarks', studied: 'studied marks', progress: 'positions', userLinks: 'slide links', practice: 'written answers' };
     preview.append(
       h('p', { class: 'small' }, `From ${incoming.device || 'another device'}, exported ${fmtDate(incoming.at)}.`),
       h('div', { class: 'diff' }, h('div', {}, h('b', {}, String(summary.added)), 'new'), h('div', {}, h('b', {}, String(summary.updated)), 'newer than mine'), h('div', {}, h('b', {}, String(summary.kept)), 'mine is newer')),

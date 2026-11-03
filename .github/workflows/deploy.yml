@@ -17,6 +17,8 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      VITE_BASE: /${{ github.event.repository.name }}/
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -28,8 +30,6 @@ jobs:
       - run: npm test
       - name: Build content and app
         run: npm run build
-        env:
-          VITE_BASE: /${{ github.event.repository.name }}/
       - name: Smoke test the build
         run: node scripts/smoke.mjs
       - uses: actions/upload-pages-artifact@v3
