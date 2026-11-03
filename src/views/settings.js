@@ -77,5 +77,5 @@ function installBlock() {
   return h('div', {},
     app.installPrompt ? h('button', { class: 'btn primary', style: { marginBottom: '.6rem' }, onclick: async () => { app.installPrompt.prompt(); await app.installPrompt.userChoice; app.installPrompt = null; } }, icon('download'), 'Install now') : null,
     h('ul', { class: 'small' }, ...items.map(([t, d]) => h('li', {}, h('b', {}, t), ': ', d))),
-    h('p', { class: 'small muted' }, 'Once installed, open it once while online and press "Save everything offline" under Downloads if you want the PDFs available without a connection.'));
+    h('p', { class: 'small muted' }, 'Once installed, the app and everything you load into it work without a connection.'));
 }

@@ -22,6 +22,7 @@ export function toast(msg, kind = 'info', ms = 3200) {
   let host = document.getElementById('toasts');
   if (!host) { host = h('div', { id: 'toasts' }); document.body.append(host); }
   const t = h('div', { class: `toast ${kind}`, role: 'status' }, msg);
+  while (host.children.length >= 3) host.firstElementChild.remove();
   host.append(t);
   requestAnimationFrame(() => t.classList.add('show'));
   setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 300); }, ms);
