@@ -1,5 +1,5 @@
 import { h, icon, toast } from '../lib/ui.js';
-import { content, allDecks, deckById, sectionByRef, suggestSections, excerptsFor, highlight, hasBook } from '../lib/content.js';
+import { content, allDecks, deckById, sectionByRef, suggestSections, excerptsFor, highlight, hasBook, readHref } from '../lib/content.js';
 import { deckBlob } from '../lib/library.js';
 import { getState, isOn, toggle, noteOf, setNote, setProgress, setUserLinks, userLinksOf, onChange, practiceOf } from '../lib/store.js';
 import { openPdf, renderPage } from '../lib/pdf.js';
@@ -90,11 +90,11 @@ export async function render(root, params) {
       const full = h('div', { class: 'excerpt', html: hit.section.html });
       const more = h('button', { class: 'btn sm', onclick: () => { full.classList.toggle('open'); more.textContent = full.classList.contains('open') ? 'Show less' : 'Read the whole section'; } }, 'Read the whole section');
       inner.append(h('div', { class: 'linked-sec' },
-        h('div', { class: 'crumb' }, `Chapter ${hit.chapter.number} · ${hit.chapter.title}`, h('span', { class: 'chip', style: { marginLeft: '.4rem' } }, isUser ? 'your link' : 'matched by wording')),
+        h('div', { class: 'crumb' }, `${content.books.length > 1 ? hit.book.title + ' · ' : ''}Chapter ${hit.chapter.number} · ${hit.chapter.title}`, h('span', { class: 'chip', style: { marginLeft: '.4rem' } }, isUser ? 'your link' : 'matched by wording')),
         h('h4', {}, hit.section.title),
         ex.sentences.length ? h('div', { class: 'explain' }, h('h4', {}, 'What the book says about this slide'), ...ex.sentences.map((sent) => h('p', { html: highlight(sent, ex.terms) }))) : h('p', { class: 'muted small' }, 'No single sentence stands out; read the section.'),
         full,
-        h('div', { class: 'row', style: { marginTop: '.5rem' } }, more, h('a', { class: 'btn sm', href: `#/read/${hit.chapter.id}/${hit.section.id}` }, icon('book'), 'Open in book'),
+        h('div', { class: 'row', style: { marginTop: '.5rem' } }, more, h('a', { class: 'btn sm', href: readHref(r) }, icon('book'), 'Open in book'),
           isUser ? h('button', { class: 'btn sm danger', onclick: () => { setUserLinks(sid, user.filter((x) => x !== r)); drawPanel(); } }, 'Unlink') : null)));
     }
     if (aiConfigured()) {
@@ -113,8 +113,8 @@ export async function render(root, params) {
     if (!s.text?.trim()) frag.append(h('p', { class: 'notice warn' }, 'No text could be read from this slide (it may be an image), so nothing can be suggested automatically. Search below.'));
     const rows = (items) => items.length ? items.map((x) => {
       const linked = auto.includes(x.ref) || user.includes(x.ref);
-      return h('div', { class: 'linked-sec' }, h('div', { class: 'crumb' }, `Chapter ${x.chapter.number} · ${x.chapter.title}`), h('h4', {}, x.section.title), h('div', { class: 'small muted' }, x.section.text.slice(0, 180) + '…'), h('div', { class: 'rel' }, h('span', { style: { width: `${Math.round(x.rel * 100)}%` } })),
-        h('div', { class: 'row', style: { marginTop: '.5rem' } }, linked ? h('span', { class: 'chip ok' }, icon('check'), 'linked') : h('button', { class: 'btn sm primary', onclick: () => { setUserLinks(sid, [...user, x.ref]); toast('Linked to this slide', 'ok', 1500); drawPanel(); } }, icon('link'), 'Link to this slide'), h('a', { class: 'btn sm', href: `#/read/${x.chapter.id}/${x.section.id}` }, 'Open')));
+      return h('div', { class: 'linked-sec' }, h('div', { class: 'crumb' }, `${content.books.length > 1 ? x.book.title + ' · ' : ''}Chapter ${x.chapter.number} · ${x.chapter.title}`), h('h4', {}, x.section.title), h('div', { class: 'small muted' }, x.section.text.slice(0, 180) + '…'), h('div', { class: 'rel' }, h('span', { style: { width: `${Math.round(x.rel * 100)}%` } })),
+        h('div', { class: 'row', style: { marginTop: '.5rem' } }, linked ? h('span', { class: 'chip ok' }, icon('check'), 'linked') : h('button', { class: 'btn sm primary', onclick: () => { setUserLinks(sid, [...user, x.ref]); toast('Linked to this slide', 'ok', 1500); drawPanel(); } }, icon('link'), 'Link to this slide'), h('a', { class: 'btn sm', href: readHref(x.ref) }, 'Open')));
     }) : [h('p', { class: 'muted' }, 'No matches.')];
     const list = h('div', {}, ...rows(suggestSections(`${s.title || ''}\n${s.text || ''}`, 6).filter((x) => x.section)));
     frag.append(h('input', { type: 'search', placeholder: 'Search the book…', oninput: (e) => list.replaceChildren(...rows(suggestSections(e.target.value, 8).filter((x) => x.section))) }), h('div', { style: { height: '.6rem' } }), list);

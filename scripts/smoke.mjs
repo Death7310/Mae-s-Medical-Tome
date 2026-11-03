@@ -104,10 +104,12 @@ const noOverflow = async (page, label) => {
 };
 const bookChip = (page) => page.locator('.slot').first().locator('.chip.ok').first();
 async function loadBook(page, file) {
+  const before = await page.locator('.slot').first().locator('table.books tr').count();
   await page.setInputFiles('#book-file', path.join(FIX, file));
-  await page.waitForFunction((name) => !document.querySelector('.busy') && (document.querySelector('.slot')?.textContent || '').includes(name) && /\d+ chapters, \d+ sections/.test(document.querySelector('.slot .chip.ok')?.textContent || ''), file, { timeout: 90000 });
-  return (await bookChip(page).textContent()).trim();
+  await page.waitForFunction((b) => !document.querySelector('.busy') && document.querySelectorAll('table.books tr').length > b, before, { timeout: 90000 });
+  return (await page.locator('table.books tr').last().locator('.chip.ok').textContent()).trim();
 }
+async function removeBookRow(page, i) { page.once('dialog', (d) => d.accept()); const before = await page.locator('table.books tr').count(); await page.locator('table.books tr').nth(i).locator('button.danger').click(); await page.waitForFunction((b) => document.querySelectorAll('table.books tr').length < b, before); }
 async function loadDeck(page, file) { const before = await page.locator('.slot').nth(1).locator('table tr').count(); await page.setInputFiles('#deck-file', path.join(FIX, file)); await page.waitForFunction((b) => document.querySelectorAll('.slot:nth-child(2) table tr').length > b, before, { timeout: 60000 }); return page.locator('.slot').nth(1).locator('table tr').last().textContent(); }
 
 async function run(label, viewport) {
@@ -126,7 +128,7 @@ async function run(label, viewport) {
   // --- PDF book: structure detected from heading sizes
   const t1 = await loadBook(page, 'book.pdf');
   check(/3 chapters, 9 sections/.test(t1), `${label}: PDF book → ${t1}`);
-  check(/heading sizes/i.test(await page.locator('.slot').first().textContent()), `${label}: PDF structure mode shown (headings)`);
+  check(/heading sizes/i.test(await page.locator('table.books').textContent()), `${label}: PDF structure mode shown (headings)`);
   await page.goto(base + '#/read');
   await page.waitForSelector('article.book');
   check((await page.locator('aside li.chapter').count()) === 3, `${label}: reader lists 3 chapters`);
@@ -210,18 +212,38 @@ async function run(label, viewport) {
   check((await p2.locator('.panel textarea').inputValue()) === 'S3 = volume overload in adults', `${label}: note arrived on the second device for the same slide`);
   await ctx2.close();
 
-  // --- replace the book with EPUB, DOCX, HTML; structure switch on PDF
+  // --- library of books: add EPUB, DOCX and HTML copies; priority order decides which book a slide links to
   await page.goto(base + '#/home'); await page.waitForSelector('#book-file', { state: 'attached' });
-  for (const f of ['book.epub', 'book.docx', 'book.html']) { const t = await loadBook(page, f); check(/3 chapters, 9 sections/.test(t) || (f === 'book.epub' && /3 chapters/.test(t)), `${label}: ${f} → ${t}`); }
-  const t5 = await loadBook(page, 'book.pdf');
-  check(/3 chapters/.test(t5), `${label}: PDF reloaded`);
-  await page.locator('.slot').first().locator('select').selectOption('pages');
-  await page.waitForFunction(() => /page groups/i.test(document.querySelector('.slot')?.textContent || ''), null, { timeout: 20000 });
-  check(!/3 chapters, 9 sections/.test(await bookChip(page).textContent()), `${label}: structure switched to page groups (${(await bookChip(page).textContent()).trim()})`);
+  for (const f of ['book.epub', 'book.docx', 'book.html']) { const t = await loadBook(page, f); check(/3 chapters, 9 sections/.test(t), `${label}: ${f} added → ${t}`); }
+  check((await page.locator('table.books tr').count()) === 4, `${label}: library lists 4 books`);
+  check(/preferred source/.test(await page.locator('table.books tr').first().textContent()) && /priority 4/.test(await page.locator('table.books tr').last().textContent()), `${label}: priority labels follow the order`);
+  await shot(page, `${label}-library-books.png`);
+  await page.goto(base + deckHref); await page.waitForSelector('.panel .tabs button');
+  await page.locator('.tabs button', { hasText: 'From the book' }).click();
+  await page.waitForSelector('.panel .linked-sec .crumb');
+  check(/^Test Physiology Book · /.test(await page.locator('.panel .linked-sec .crumb').first().textContent()), `${label}: with equal content, the slide links to the top-priority book (PDF)`);
+  await page.goto(base + '#/home'); await page.waitForSelector('table.books');
+  await page.locator('table.books tr').nth(1).locator('button[aria-label="Move up"]').click();
+  await page.waitForFunction(() => /EPUB/.test(document.querySelector('table.books tr')?.textContent || ''));
+  check(/EPUB/.test(await page.locator('table.books tr').first().textContent()), `${label}: EPUB moved to the top`);
+  await page.goto(base + deckHref); await page.waitForSelector('.panel .tabs button');
+  await page.locator('.tabs button', { hasText: 'From the book' }).click();
+  await page.waitForSelector('.panel .linked-sec .crumb');
+  check(/^Test Physiology Book EPUB · /.test(await page.locator('.panel .linked-sec .crumb').first().textContent()), `${label}: after reordering, the slide links to the EPUB first`);
+  // disable a book for linking, then delete books
+  await page.goto(base + '#/home'); await page.waitForSelector('table.books');
+  await page.locator('table.books tr').first().locator('input[type=checkbox]').uncheck();
+  await page.waitForFunction(() => /not used for linking/.test(document.querySelector('table.books tr')?.textContent || ''));
+  check(true, `${label}: a book can be excluded from linking`);
+  await removeBookRow(page, 0); await removeBookRow(page, 2); await removeBookRow(page, 1);
+  check((await page.locator('table.books tr').count()) === 1 && /Test Physiology Book/.test(await page.locator('table.books tr').first().textContent()), `${label}: books deleted, PDF remains`);
+  await page.locator('table.books select[aria-label="Book structure"]').selectOption('pages');
+  await page.waitForFunction(() => /page groups/i.test(document.querySelector('table.books')?.textContent || ''), null, { timeout: 20000 });
+  check(!/3 chapters, 9 sections/.test(await page.locator('table.books .chip.ok').first().textContent()), `${label}: structure switched to page groups (${(await page.locator('table.books .chip.ok').first().textContent()).trim()})`);
+  await page.locator('table.books select[aria-label="Book structure"]').selectOption('headings');
+  await page.waitForFunction(() => /3 chapters, 9 sections/.test(document.querySelector('table.books .chip.ok')?.textContent || ''), null, { timeout: 20000 });
 
   // --- teach it back in the reader
-  await page.locator('.slot').first().locator('select').selectOption('headings');
-  await page.waitForFunction(() => /3 chapters, 9 sections/.test(document.querySelector('.slot .chip.ok')?.textContent || ''), null, { timeout: 20000 });
   await page.goto(base + '#/read');
   await page.waitForSelector('article.book');
   await page.locator('article.book section').nth(1).locator('button', { hasText: 'Teach it back' }).click();

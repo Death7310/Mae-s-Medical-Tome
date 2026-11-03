@@ -2,7 +2,7 @@
 
 Everything happens on the device. No file leaves it.
 
-## The book slot (one file)
+## The book slot (as many books as you like)
 
 | Format | How chapters and sections are found | Notes |
 | --- | --- | --- |
@@ -28,7 +28,7 @@ Slides that are only images (no text layer) cannot be linked automatically; use 
 
 ## How slides get linked to the book
 
-Each slide's text is run as a query against every section of the book (BM25 ranking). The top sections are linked when they match clearly: a relative score of at least 0.55 against the best match and at least two or three shared terms. You can add links with "Find in book" and remove your own.
+Each slide's text is run as a query against every section of every enabled book (BM25 ranking). Books higher in the Library list carry a priority weight (1, 0.85, 0.72, …), so with comparable matches the preferred book ranks first; a clearly better match in a lower book still wins. The top sections are linked when they match clearly: a relative score of at least 0.55 against the best match and at least two or three shared terms. You can add links with "Find in book" and remove your own.
 
 ## What the explanation is
 

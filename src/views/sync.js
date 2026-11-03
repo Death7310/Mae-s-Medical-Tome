@@ -15,7 +15,7 @@ export async function render(root) {
   const qrHost = h('div');
   let code = '';
   const generate = () => {
-    code = encodeState(getState(), pref('deviceName', ''), { lib: { bookId: library.book?.id || null, bookName: library.book?.name || null, deckIds: library.decks.map((d) => d.id) } });
+    code = encodeState(getState(), pref('deviceName', ''), { lib: { books: library.books.map((b) => ({ id: b.id, name: b.title || b.name })), deckIds: library.decks.map((d) => d.id) } });
     codeBox.value = code;
     info.textContent = `${code.length} characters (${fmtBytes(code.length)}). Contains notes, written answers and attempts, bookmarks, studied marks, reading position and your slide links. Not your PDFs or API key.`;
     exportBtns.querySelectorAll('button').forEach((b) => (b.disabled = false));
@@ -54,8 +54,8 @@ export async function render(root) {
     const { merged, summary } = mergeState(getState(), incoming);
     const names = { notes: 'notes', bookmarks: 'bookmarks', studied: 'studied marks', progress: 'positions', userLinks: 'slide links', practice: 'written answers' };
     const libWarn = [];
-    if (incoming.lib?.bookId && library.book && incoming.lib.bookId !== library.book.id) libWarn.push(`The other device has a different book file ("${incoming.lib.bookName}"). Notes and links are attached to sections of that file and may not line up here. Load the same file on both devices.`);
-    if (incoming.lib?.bookId && !library.book) libWarn.push(`The other device has the book "${incoming.lib.bookName}" loaded; load the same file here so notes attach to the right sections.`);
+    const missingBooks = (incoming.lib?.books || (incoming.lib?.bookId ? [{ id: incoming.lib.bookId, name: incoming.lib.bookName }] : [])).filter((b) => !library.books.some((x) => x.id === b.id));
+    if (missingBooks.length) libWarn.push(`Not loaded here: ${missingBooks.map((b) => `"${b.name}"`).join(', ')}. Notes and links for those books are kept and appear once the same file is loaded on this device.`);
     const missingDecks = (incoming.lib?.deckIds || []).filter((id) => !library.decks.some((d) => d.id === id)).length;
     if (missingDecks) libWarn.push(`${missingDecks} deck${missingDecks === 1 ? '' : 's'} from the other device ${missingDecks === 1 ? 'is' : 'are'} not loaded here. Slide notes for them are kept and appear once the same file is loaded.`);
     preview.append(

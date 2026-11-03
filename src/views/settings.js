@@ -32,7 +32,7 @@ export async function render(root) {
       h('div', { class: 'row' }, persist,
         h('button', { class: 'btn sm danger', onclick: async () => { if (confirm('Delete the loaded book and slides and ALL notes, answers, progress and links on this device? Export a sync code first if you want to keep them.')) { await clearIdb(); if ('caches' in window) for (const k of await caches.keys()) await caches.delete(k); location.hash = '#/home'; location.reload(); } } }, icon('trash'), 'Clear everything'))),
     h('div', { class: 'card' }, h('h3', {}, 'About'),
-      h('p', { class: 'small muted' }, content.book ? `Book: ${content.book.title} (${library.book?.name})` : 'No book loaded', h('br'), `App ${__APP_VERSION__}`, h('br'), 'Offline-first progressive web app. Works on Windows (Edge/Chrome), Android (Chrome) and Huawei (Huawei Browser), with no account and no server.'),
+      h('p', { class: 'small muted' }, content.books.length ? `Books: ${content.books.map((b) => b.title).join(', ')}` : 'No book loaded', h('br'), `App ${__APP_VERSION__}`, h('br'), 'Offline-first progressive web app. Works on Windows (Edge/Chrome), Android (Chrome) and Huawei (Huawei Browser), with no account and no server.'),
       ));
 }
 

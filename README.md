@@ -10,7 +10,8 @@ An offline-first study app. You load **your book** (PDF, EPUB, Word, HTML, Markd
 
 ## What it does
 
-- **Two slots, any format**: one for the book, one for slides. Drop the file in; the app does the rest. See [`docs/FILES.md`](docs/FILES.md) for how each format is read.
+- **Two slots, any format**: one for books, one for slides. Drop files in; the app does the rest. See [`docs/FILES.md`](docs/FILES.md) for how each format is read.
+- **A real library**: load as many books and decks as you like. Each is listed with its detected structure, can be opened or deleted, and books are ordered by priority: when a slide matches passages in several books, the higher one wins and is listed first. A book can also be kept for reading but excluded from linking.
 - **Structure from the book itself**: chapters and sections come from the PDF's bookmarks, from heading sizes, or from the document's headings. For PDFs you can switch structure if the detection looks wrong.
 - **Slides linked to the book automatically**: each slide is matched to the sections whose wording it shares. "From the book" shows the matching sentences of your own book with the shared terms highlighted, never invented text.
 - **Teach it back, on every slide and every section**: write the explanation first, in your own English. The coach checks coverage of the section's terminology and the writing itself (run-ons, capitals, spelling, vague words, hedging, missing mechanism), gives escalating hints, and holds the book's explanation back until you have tried.

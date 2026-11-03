@@ -236,3 +236,12 @@ dialog.dlg.ok h3 { color: var(--ok); }
 dialog.dlg.warn h3 { color: var(--warn); }
 dialog.dlg p { margin: .4rem 0; }
 dialog.dlg .dlg-actions { justify-content: flex-end; margin-top: 1rem; }
+
+table.list.books td, table.list.decks td { vertical-align: top; }
+details.card > summary { list-style: none; cursor: pointer; }
+details.card > summary::-webkit-details-marker { display: none; }
+details.card > summary::before { content: "▸ "; color: var(--fg-3); }
+details.card[open] > summary::before { content: "▾ "; }
+table.list td.actions { text-align: right; width: 1%; }
+table.list td.actions .row { flex-wrap: wrap; max-width: 9.5rem; }
+@media (max-width: 480px) { table.list.books tr, table.list.decks tr { display: grid; grid-template-columns: 2rem 1fr; } table.list.books td.actions, table.list.decks td.actions { grid-column: 1 / -1; border-top: 0; padding-top: 0; width: auto; } table.list.decks tr { grid-template-columns: 1fr; } table.list td.actions .row { max-width: none; justify-content: flex-start; } }

@@ -30,7 +30,7 @@ export function buildIndex(docs) {
     const m = new Map();
     for (const t of toks) m.set(t, (m.get(t) || 0) + 1);
     for (const t of m.keys()) df.set(t, (df.get(t) || 0) + 1);
-    tf.push({ id: d.id, len: toks.length, m });
+    tf.push({ id: d.id, len: toks.length, m, weight: d.weight ?? 1 });
     totalLen += toks.length;
   }
   const avgLen = totalLen / Math.max(N, 1);
@@ -48,7 +48,7 @@ export function buildIndex(docs) {
           const idf = Math.log(1 + (N - df.get(t) + 0.5) / (df.get(t) + 0.5));
           s += idf * (f * (k1 + 1)) / (f + k1 * (1 - b + (b * d.len) / avgLen));
         }
-        if (s > 0) scores.push({ id: d.id, score: s, matched, qlen: q.length });
+        if (s > 0) scores.push({ id: d.id, score: s * (d.weight ?? 1), matched, qlen: q.length });
       }
       scores.sort((a, b2) => b2.score - a.score);
       const top = scores.slice(0, k);

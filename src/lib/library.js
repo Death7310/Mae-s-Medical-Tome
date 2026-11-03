@@ -1,69 +1,92 @@
 /**
- * The library: the one book and the slide decks the learner has loaded,
- * stored in IndexedDB. Ids are content hashes so that the same files loaded
- * on two devices produce the same ids, which is what lets notes and links sync.
+ * The library: the books and slide decks the learner has loaded, stored in
+ * IndexedDB. Books are ordered: when a slide matches passages in several
+ * books, the one higher in the list is preferred. Ids are content hashes so
+ * the same files on two devices get the same ids, which is what lets notes
+ * and links sync.
  */
 import { get, set, del, keys } from 'idb-keyval';
 import { parseBookFile, parseDeckFile, restructurePdf } from './parsers/index.js';
 
-const META = 'mmt:lib:v1';
-export const library = { book: null, decks: [], bookData: null, deckData: new Map(), pdfCache: null };
+const META = 'mmt:lib:v2';
+const META_V1 = 'mmt:lib:v1';
+export const library = { books: [], decks: [], bookData: new Map(), deckData: new Map() };
 
 async function sha256(buf) {
   const h = await crypto.subtle.digest('SHA-256', buf);
   return [...new Uint8Array(h)].map((b) => b.toString(16).padStart(2, '0')).join('').slice(0, 16);
 }
+const saveMeta = () => set(META, { books: library.books, decks: library.decks });
 
 export async function loadLibrary() {
-  const meta = (await get(META)) || { book: null, decks: [] };
-  library.book = meta.book;
+  let meta = await get(META);
+  if (!meta) {
+    const v1 = await get(META_V1);
+    meta = { books: v1?.book ? [{ ...v1.book, enabled: true }] : [], decks: v1?.decks || [] };
+    if (v1) { await set(META, meta); await del(META_V1); }
+  }
+  library.books = meta.books || [];
   library.decks = meta.decks || [];
-  library.bookData = library.book ? await get(`mmt:lib:book:${library.book.id}:parsed`) : null;
-  library.pdfCache = null;
+  library.bookData = new Map();
   library.deckData = new Map();
+  for (const b of library.books) library.bookData.set(b.id, await get(`mmt:lib:book:${b.id}:parsed`));
   for (const d of library.decks) library.deckData.set(d.id, await get(`mmt:lib:deck:${d.id}:parsed`));
-  if (!library.bookData && library.book) { library.book = null; }
+  library.books = library.books.filter((b) => library.bookData.get(b.id));
   library.decks = library.decks.filter((d) => library.deckData.get(d.id));
   return library;
 }
-const saveMeta = () => set(META, { book: library.book, decks: library.decks });
 
-export async function setBookFromFile(file, { onProgress, prefer } = {}) {
+export async function addBookFromFile(file, { onProgress, prefer } = {}) {
   const buf = await file.arrayBuffer();
   const id = await sha256(buf);
+  const existing = library.books.find((b) => b.id === id);
+  if (existing) return { book: existing, duplicate: true };
   const { book, meta, pdfCache } = await parseBookFile(new File([buf], file.name, { type: file.type }), { onProgress, prefer });
   if (!book.chapters.length) throw new Error('No readable text was found in this file. If it is a scanned PDF, run it through OCR first.');
-  if (library.book) await removeBook({ keepState: true });
   await set(`mmt:lib:book:${id}:blob`, new Blob([buf], { type: file.type || 'application/octet-stream' }));
   await set(`mmt:lib:book:${id}:parsed`, book);
   if (pdfCache) await set(`mmt:lib:book:${id}:pdfcache`, pdfCache);
-  library.book = { id, name: file.name, size: buf.byteLength, addedAt: Date.now(), kind: meta.kind, inner: meta.inner, mode: meta.mode, available: meta.available || [], pageCount: meta.pageCount, title: book.title, chapters: book.chapters.length, sections: book.chapters.reduce((a, c) => a + c.sections.length, 0) };
-  library.bookData = book;
-  library.pdfCache = pdfCache || null;
+  const entry = { id, name: file.name, size: buf.byteLength, addedAt: Date.now(), kind: meta.kind, inner: meta.inner, mode: meta.mode, available: meta.available || [], pageCount: meta.pageCount, title: book.title, chapters: book.chapters.length, sections: book.chapters.reduce((a, c) => a + c.sections.length, 0), enabled: true };
+  library.books.push(entry);
+  library.bookData.set(id, book);
   await saveMeta();
-  return library.book;
+  return { book: entry, duplicate: false };
 }
 
 /** Switch a PDF book between outline / headings / pages structure. */
-export async function restructureBook(mode) {
-  if (!library.book) return;
-  const cache = library.pdfCache || (await get(`mmt:lib:book:${library.book.id}:pdfcache`));
+export async function restructureBook(id, mode) {
+  const entry = library.books.find((b) => b.id === id);
+  if (!entry) return;
+  const cache = await get(`mmt:lib:book:${id}:pdfcache`);
   if (!cache) throw new Error('This book format has a fixed structure.');
-  library.pdfCache = cache;
   const { book, mode: used } = restructurePdf(cache, mode);
   if (!book) throw new Error(`Structure "${mode}" is not available for this file.`);
-  await set(`mmt:lib:book:${library.book.id}:parsed`, book);
-  library.bookData = book;
-  Object.assign(library.book, { mode: used, chapters: book.chapters.length, sections: book.chapters.reduce((a, c) => a + c.sections.length, 0) });
+  await set(`mmt:lib:book:${id}:parsed`, book);
+  library.bookData.set(id, book);
+  Object.assign(entry, { mode: used, chapters: book.chapters.length, sections: book.chapters.reduce((a, c) => a + c.sections.length, 0) });
   await saveMeta();
 }
 
-export async function removeBook() {
-  if (!library.book) return;
-  const id = library.book.id;
+export async function removeBook(id) {
   for (const k of [`mmt:lib:book:${id}:blob`, `mmt:lib:book:${id}:parsed`, `mmt:lib:book:${id}:pdfcache`]) await del(k);
-  library.book = null; library.bookData = null; library.pdfCache = null;
+  library.books = library.books.filter((b) => b.id !== id);
+  library.bookData.delete(id);
   await saveMeta();
+}
+
+/** Move a book up (-1) or down (+1) in priority. */
+export async function moveBook(id, dir) {
+  const i = library.books.findIndex((b) => b.id === id);
+  const j = i + dir;
+  if (i < 0 || j < 0 || j >= library.books.length) return;
+  const [b] = library.books.splice(i, 1);
+  library.books.splice(j, 0, b);
+  await saveMeta();
+}
+
+export async function setBookEnabled(id, enabled) {
+  const b = library.books.find((x) => x.id === id);
+  if (b) { b.enabled = enabled; await saveMeta(); }
 }
 
 export async function addDecksFromFile(file, { onProgress } = {}) {
@@ -72,7 +95,7 @@ export async function addDecksFromFile(file, { onProgress } = {}) {
   for (const d of decks) {
     if (!d.slides.length) continue;
     const id = await sha256(await d.blob.arrayBuffer());
-    if (library.decks.some((x) => x.id === id)) continue; // already loaded
+    if (library.decks.some((x) => x.id === id)) continue;
     const parsed = { title: d.name, kind: d.kind, slides: d.slides };
     await set(`mmt:lib:deck:${id}:blob`, d.blob);
     await set(`mmt:lib:deck:${id}:parsed`, parsed);
@@ -92,12 +115,21 @@ export async function removeDeck(id) {
   await saveMeta();
 }
 
-export const bookBlob = () => (library.book ? get(`mmt:lib:book:${library.book.id}:blob`) : null);
+export async function moveDeck(id, dir) {
+  const i = library.decks.findIndex((d) => d.id === id);
+  const j = i + dir;
+  if (i < 0 || j < 0 || j >= library.decks.length) return;
+  const [d] = library.decks.splice(i, 1);
+  library.decks.splice(j, 0, d);
+  await saveMeta();
+}
+
+export const bookBlob = (id) => get(`mmt:lib:book:${id}:blob`);
 export const deckBlob = (id) => get(`mmt:lib:deck:${id}:blob`);
 
 export async function clearLibrary() {
   for (const k of await keys()) if (String(k).startsWith('mmt:lib:')) await del(k);
-  library.book = null; library.bookData = null; library.decks = []; library.deckData = new Map(); library.pdfCache = null;
+  library.books = []; library.bookData = new Map(); library.decks = []; library.deckData = new Map();
 }
 
 // ---------------------------------------------------------------- exports (generated from the parsed book, in the browser)
@@ -113,7 +145,7 @@ export function bookToHtml(book) {
   return `<!doctype html><html><head><meta charset="utf-8"><title>${esc(book.title)}</title><meta name="viewport" content="width=device-width,initial-scale=1"><style>${BOOK_CSS}</style></head><body><h1 class="title">${esc(book.title)}</h1><nav class="toc"><h2>Contents</h2><ol>${toc}</ol></nav>${body}</body></html>`;
 }
 const xhtmlify = (html) => html.replace(/<(br|hr|img[^>]*?)(?<!\/)>/g, '<$1/>').replace(/&nbsp;/g, '&#160;').replace(/&(?!(amp|lt|gt|quot|apos|#\d+|#x[0-9a-f]+);)/gi, '&amp;');
-export async function bookToEpub(book) {
+export async function bookToEpub(book, uidSeed = 'book') {
   const { default: JSZip } = await import('jszip');
   const zip = new JSZip();
   zip.file('mimetype', 'application/epub+zip', { compression: 'STORE' });
@@ -130,8 +162,7 @@ export async function bookToEpub(book) {
     nav.push(`<li><a href="${f}">${esc(c.title)}</a><ol>${c.sections.map((s) => `<li><a href="${f}#${s.id}">${esc(s.title)}</a></li>`).join('')}</ol></li>`);
   });
   zip.file('OEBPS/nav.xhtml', page('Contents', `<nav epub:type="toc"><h1>Contents</h1><ol>${nav.join('')}</ol></nav>`));
-  const uid = `urn:mmt:${library.book?.id || 'book'}`;
-  zip.file('OEBPS/content.opf', `<?xml version="1.0" encoding="UTF-8"?><package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="uid"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:identifier id="uid">${uid}</dc:identifier><dc:title>${esc(book.title)}</dc:title><dc:language>en</dc:language><meta property="dcterms:modified">${new Date().toISOString().replace(/\.\d+Z$/, 'Z')}</meta></metadata><manifest><item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/><item id="css" href="style.css" media-type="text/css"/>${items.join('')}</manifest><spine>${spine.join('')}</spine></package>`);
+  zip.file('OEBPS/content.opf', `<?xml version="1.0" encoding="UTF-8"?><package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="uid"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:identifier id="uid">urn:mmt:${uidSeed}</dc:identifier><dc:title>${esc(book.title)}</dc:title><dc:language>en</dc:language><meta property="dcterms:modified">${new Date().toISOString().replace(/\.\d+Z$/, 'Z')}</meta></metadata><manifest><item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/><item id="css" href="style.css" media-type="text/css"/>${items.join('')}</manifest><spine>${spine.join('')}</spine></package>`);
   return zip.generateAsync({ type: 'blob', mimeType: 'application/epub+zip', compression: 'DEFLATE' });
 }
 export function deckToMarkdown(deck) {
