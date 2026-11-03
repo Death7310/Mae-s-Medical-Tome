@@ -13,6 +13,8 @@ export async function openPdf(key, source) {
   return p;
 }
 export function closePdf(key) { docs.delete(key); }
+/** Open a PDF from bytes without caching (parsers). */
+export const openPdfData = (data) => pdfjsLib.getDocument({ data, isEvalSupported: false }).promise;
 
 let renderTask = null;
 export async function renderPage(doc, pageNumber, canvas, maxWidth, maxHeight) {

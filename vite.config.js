@@ -38,18 +38,9 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,mjs,css,html,svg,png,ico,json,woff2}'],
-        globIgnores: ['downloads/**'],
         maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
         navigateFallback: base + 'index.html',
         cleanupOutdatedCaches: true,
-        runtimeCaching: [
-          {
-            // Book/slide files are large: cached on demand ("Save offline") or when first opened.
-            urlPattern: ({ url }) => url.pathname.includes('/downloads/'),
-            handler: 'CacheFirst',
-            options: { cacheName: 'mmt-downloads', cacheableResponse: { statuses: [0, 200] }, expiration: { maxEntries: 200 } },
-          },
-        ],
       },
       devOptions: { enabled: false },
     }),

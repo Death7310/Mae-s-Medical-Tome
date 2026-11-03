@@ -16,7 +16,7 @@ The repository contains a ready Capacitor Android project under `android/`. Ever
 https://github.com/Death7310/Mae-s-Medical-Tome/releases/latest/download/maes-medical-tome.apk
 ```
 
-Open that link on the phone, allow installation from the browser when Android asks, and install. The APK bundles the web app and all download files, so it is fully offline from first launch. On the phone, "Download" buttons become "Save / share", which opens the Android share sheet.
+Open that link on the phone, allow installation from the browser when Android asks, and install. The APK bundles the web app, so it is fully offline from first launch; the book and slides you load are stored on the phone. On the phone, "Download" buttons become "Save / share", which opens the Android share sheet.
 
 **Signing.** By default CI signs with the development keystore committed at `android/keystore/dev-release.jks` (password `medicaltome`, alias `tome`). That is enough for personal sideloading, and updates install over each other because the key is constant. Because this repository is public, anyone can sign an APK with that same key, so before distributing the app to other people or submitting it to a store, switch to a private key: generate one with `keytool`, then add four repository secrets, `ANDROID_KEYSTORE_BASE64` (the .jks file base64-encoded), `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`. The workflow uses them automatically. Note that phones with the dev-signed build must uninstall it before installing a build signed with the new key.
 
@@ -33,7 +33,7 @@ The resulting APK:
 
 - installs on any Android phone, and on Huawei phones without Google services (the app uses no Google APIs);
 - can be submitted to Huawei AppGallery (sign up at developer.huawei.com, upload the APK/AAB) or Google Play;
-- loads the web app from local files, so it is fully offline from the first launch, including the download files if you keep them in `dist/`.
+- loads the web app from local files, so it is fully offline from the first launch.
 
 Because the Capacitor app uses the system WebView, keep the WebView updated on test devices; very old WebViews (< Chromium 80) lack features such as `CompressionStream` fallbacks, which this app avoids, but PDF rendering performance improves markedly on recent ones.
 

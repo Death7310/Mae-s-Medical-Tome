@@ -3,6 +3,7 @@ import { h, icon, toast, copyText, downloadBlob, fmtDate, fmtBytes } from '../li
 import { getState, replaceState, logSync, pref, setPref } from '../lib/store.js';
 import { encodeState, decodeState, mergeState, splitForQr, createChunkCollector } from '../lib/sync.js';
 import { isNative, shareText } from '../lib/native.js';
+import { library } from '../lib/library.js';
 
 export async function render(root) {
   const st = getState();
@@ -14,7 +15,7 @@ export async function render(root) {
   const qrHost = h('div');
   let code = '';
   const generate = () => {
-    code = encodeState(getState(), pref('deviceName', ''));
+    code = encodeState(getState(), pref('deviceName', ''), { lib: { bookId: library.book?.id || null, bookName: library.book?.name || null, deckIds: library.decks.map((d) => d.id) } });
     codeBox.value = code;
     info.textContent = `${code.length} characters (${fmtBytes(code.length)}). Contains notes, written answers and attempts, bookmarks, studied marks, reading position and your slide links. Not your PDFs or API key.`;
     exportBtns.querySelectorAll('button').forEach((b) => (b.disabled = false));
@@ -52,8 +53,14 @@ export async function render(root) {
     try { incoming = decodeState(pasteBox.value); } catch (e) { preview.append(h('p', { class: 'notice warn' }, e.message)); return; }
     const { merged, summary } = mergeState(getState(), incoming);
     const names = { notes: 'notes', bookmarks: 'bookmarks', studied: 'studied marks', progress: 'positions', userLinks: 'slide links', practice: 'written answers' };
+    const libWarn = [];
+    if (incoming.lib?.bookId && library.book && incoming.lib.bookId !== library.book.id) libWarn.push(`The other device has a different book file ("${incoming.lib.bookName}"). Notes and links are attached to sections of that file and may not line up here. Load the same file on both devices.`);
+    if (incoming.lib?.bookId && !library.book) libWarn.push(`The other device has the book "${incoming.lib.bookName}" loaded; load the same file here so notes attach to the right sections.`);
+    const missingDecks = (incoming.lib?.deckIds || []).filter((id) => !library.decks.some((d) => d.id === id)).length;
+    if (missingDecks) libWarn.push(`${missingDecks} deck${missingDecks === 1 ? '' : 's'} from the other device ${missingDecks === 1 ? 'is' : 'are'} not loaded here. Slide notes for them are kept and appear once the same file is loaded.`);
     preview.append(
       h('p', { class: 'small' }, `From ${incoming.device || 'another device'}, exported ${fmtDate(incoming.at)}.`),
+      ...libWarn.map((w) => h('p', { class: 'notice warn small' }, w)),
       h('div', { class: 'diff' }, h('div', {}, h('b', {}, String(summary.added)), 'new'), h('div', {}, h('b', {}, String(summary.updated)), 'newer than mine'), h('div', {}, h('b', {}, String(summary.kept)), 'mine is newer')),
       h('p', { class: 'muted small' }, Object.entries(summary.byCollection).map(([k, v]) => `${names[k]}: +${v.added} ↑${v.updated}`).join(' · ')),
       h('div', { class: 'row' },
@@ -83,7 +90,7 @@ export async function render(root) {
   drawLog();
 
   root.replaceChildren(h('h1', {}, 'Sync between phone and computer'),
-    h('div', { class: 'notice small', style: { marginBottom: '1rem' } }, 'Workflow: on the device you just studied on, create a code and send it to yourself (e-mail, chat, QR or file). On the other device, paste or scan it and merge. Do it in both directions whenever you switch devices.'),
+    h('div', { class: 'notice small', style: { marginBottom: '1rem' } }, 'Workflow: load the same book and slide files on both devices. On the device you just studied on, create a code and send it to yourself (e-mail, chat, QR or file). On the other device, paste or scan it and merge. Do it in both directions whenever you switch devices.'),
     exportCard, importCard, logCard);
   return () => stopScan();
 }

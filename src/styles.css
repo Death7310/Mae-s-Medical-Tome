@@ -209,3 +209,15 @@ video.scan { width: 100%; max-height: 60vh; border-radius: 10px; background: #00
 .explain.gated { background: var(--bg-3); }
 .explain.gated summary { color: var(--fg-2); font-weight: 600; cursor: pointer; }
 .explain.gated > div { margin-top: .6rem; }
+
+/* ---- library slots */
+.slots .slot { display: flex; flex-direction: column; }
+.dropzone { margin-top: auto; border: 2px dashed var(--line); border-radius: 10px; padding: 1rem; display: flex; align-items: center; gap: .8rem; cursor: pointer; background: var(--bg); transition: .15s; }
+.dropzone:hover, .dropzone:focus-visible, .dropzone.over { border-color: var(--accent-2); background: var(--accent-soft); outline: none; }
+.dropzone .icon.big { width: 2rem; height: 2rem; color: var(--accent-2); flex: 0 0 auto; }
+.busy { border-color: var(--accent-2); }
+mark { background: var(--warn-soft); color: inherit; padding: 0 .1em; border-radius: 3px; font-weight: 600; }
+:root[data-theme="dark"] mark { background: #4a3a12; }
+.stage .fallback.text ul { padding-left: 1.2em; }
+.stage .fallback.text li { margin: .25em 0; }
+.explain p { margin: .3rem 0; }

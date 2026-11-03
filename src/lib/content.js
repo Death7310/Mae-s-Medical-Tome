@@ -1,52 +1,68 @@
-/** Loads built content (book, decks, manifest) and manages user-imported decks. */
-import { get, set, del } from 'idb-keyval';
-import { buildIndex } from './search.js';
-import { buildDfIndex, extractKeyTerms } from './coach.js';
+/**
+ * Content façade used by the views. Everything comes from the library the
+ * learner loaded: the book is indexed for search and coaching, every slide is
+ * linked to the book sections its text matches, and explanations are the
+ * book's own sentences that match the slide.
+ */
+import { buildIndex, tokenize } from './search.js';
+import { buildDfIndex, extractKeyTerms, splitSentences } from './coach.js';
+import { library, loadLibrary } from './library.js';
 
 export const BASE = import.meta.env.BASE_URL.endsWith('/') ? import.meta.env.BASE_URL : import.meta.env.BASE_URL + '/';
 export const url = (rel) => BASE + rel.replace(/^\//, '');
 
-export const content = { book: null, decks: [], manifest: null, sections: new Map(), index: null, imported: [], dfIndex: null };
+export const content = { book: null, decks: [], sections: new Map(), index: null, dfIndex: null, ready: false };
 
 export async function loadContent() {
-  const [book, decks, manifest] = await Promise.all([
-    fetch(url('content/book.json')).then((r) => r.json()),
-    fetch(url('content/decks.json')).then((r) => r.json()).catch(() => ({ decks: [] })),
-    fetch(url('content/manifest.json')).then((r) => r.json()).catch(() => null),
-  ]);
-  content.book = book;
-  content.decks = decks.decks || [];
-  content.manifest = manifest;
+  await loadLibrary();
+  rebuild();
+  return content;
+}
+
+/** Recompute indexes and auto-links after the library changes. */
+export function rebuild() {
+  content.book = library.bookData;
   content.sections.clear();
   const docs = [];
-  for (const ch of book.chapters) {
-    for (const sec of ch.sections) {
+  if (content.book) {
+    for (const ch of content.book.chapters) for (const sec of ch.sections) {
       const ref = `${ch.id}#${sec.id}`;
       content.sections.set(ref, { ref, chapter: ch, section: sec });
-      if (!/^references$/i.test(sec.title)) docs.push({ id: ref, title: `${ch.title} ${sec.title}`, text: sec.text });
+      if (!/^(references|bibliography|index|further reading)$/i.test(sec.title)) docs.push({ id: ref, title: `${ch.title} ${sec.title}`, text: sec.text });
     }
   }
-  content.index = buildIndex(docs);
-  content.dfIndex = buildDfIndex(docs.map((d) => d.text));
-  content.imported = (await get('mmt:imported')) || [];
-  return content;
+  content.index = docs.length ? buildIndex(docs) : null;
+  content.dfIndex = docs.length ? buildDfIndex(docs.map((d) => d.text)) : null;
+  content.decks = library.decks.map((meta) => {
+    const data = library.deckData.get(meta.id);
+    const deck = { ...meta, title: data?.title || meta.name, slides: (data?.slides || []).map((s) => ({ ...s })) };
+    for (const s of deck.slides) s.sections = autoLinks(s);
+    return deck;
+  });
+  content.ready = true;
+}
+
+/** Book sections whose wording matches a slide: top 3, relative score ≥ .55 and enough shared terms. */
+export function autoLinks(slide) {
+  if (!content.index) return [];
+  const q = `${slide.title || ''} ${slide.title || ''} ${slide.text || ''}`;
+  const need = Math.min(3, Math.max(2, Math.floor(new Set(tokenize(q)).size * 0.15)));
+  return content.index.search(q, 5).filter((r) => r.rel >= 0.55 && r.matched >= need).slice(0, 3).map((r) => r.id);
 }
 
 export const sectionByRef = (ref) => content.sections.get(ref);
 export const chapterById = (id) => content.book?.chapters.find((c) => c.id === id);
-export const allDecks = () => [...content.decks, ...content.imported.map((d) => ({ ...d, imported: true }))];
-export const deckById = (id) => allDecks().find((d) => d.id === id);
+export const allDecks = () => content.decks;
+export const deckById = (id) => content.decks.find((d) => d.id === id);
+export const hasBook = () => !!content.book;
 
-/** Built-in slide -> book links, plus reverse map section -> slides. */
 export function slidesForSection(ref, userLinks = {}) {
   const out = [];
-  for (const d of allDecks()) {
-    for (const s of d.slides || []) {
-      const sid = `slide:${d.id}#${s.number}`;
-      const built = s.sections || [];
-      const user = userLinks[sid]?.sections || [];
-      if (built.includes(ref) || user.includes(ref)) out.push({ deck: d, slide: s, user: !built.includes(ref) });
-    }
+  for (const d of content.decks) for (const s of d.slides) {
+    const sid = `slide:${d.id}#${s.number}`;
+    const auto = s.sections || [];
+    const user = userLinks[sid]?.sections || [];
+    if (auto.includes(ref) || user.includes(ref)) out.push({ deck: d, slide: s, user: !auto.includes(ref) });
   }
   return out;
 }
@@ -65,28 +81,30 @@ export function coachMaterial(refs, k = 10) {
   return { texts, terms: terms.slice(0, k), titles: hits.map((h) => h.section.title) };
 }
 
-// ---- imported decks (PDF chosen by the user, stored locally, never synced as binary)
-export async function importDeck(file, extractText) {
-  const id = 'imp-' + Math.random().toString(36).slice(2, 10);
-  const buf = await file.arrayBuffer();
-  const pages = await extractText(buf);
-  const deck = {
-    id,
-    title: file.name.replace(/\.pdf$/i, ''),
-    source: 'imported.pdf',
-    addedAt: Date.now(),
-    bytes: buf.byteLength,
-    slides: pages.map((text, i) => ({ number: i + 1, title: (text.split('\n')[0] || `Slide ${i + 1}`).slice(0, 80), text, sections: [], explanationHtml: '' })),
-    files: {},
-  };
-  await set(`mmt:deckblob:${id}`, new Blob([buf], { type: 'application/pdf' }));
-  content.imported = [...content.imported, deck];
-  await set('mmt:imported', content.imported);
-  return deck;
+/**
+ * Extractive explanation: the sentences of a section that best match the
+ * slide, in reading order, with the shared terms marked for highlighting.
+ */
+export function excerptsFor(slide, ref, n = 4) {
+  const hit = sectionByRef(ref);
+  if (!hit) return { sentences: [], terms: [] };
+  const qTokens = new Set(tokenize(`${slide.title || ''} ${slide.text || ''}`));
+  const idf = (t) => { const d = content.dfIndex?.df.get(t) || 1; return Math.log(1 + (content.dfIndex?.N || 1) / d); };
+  const sentences = splitSentences(hit.section.text).map((s, i) => {
+    const toks = new Set(tokenize(s));
+    let score = 0; const shared = [];
+    for (const t of toks) if (qTokens.has(t)) { score += idf(t); shared.push(t); }
+    return { i, s, score: score / Math.sqrt(Math.max(toks.size, 4)), shared };
+  });
+  const top = sentences.filter((x) => x.score > 0 && x.shared.length >= 2).sort((a, b) => b.score - a.score).slice(0, n).sort((a, b) => a.i - b.i);
+  const terms = [...new Set(top.flatMap((x) => x.shared))];
+  return { sentences: top.map((x) => x.s), terms, title: hit.section.title, chapter: hit.chapter };
 }
-export async function removeImportedDeck(id) {
-  content.imported = content.imported.filter((d) => d.id !== id);
-  await set('mmt:imported', content.imported);
-  await del(`mmt:deckblob:${id}`);
+
+/** Wrap matched terms in <mark>, safely. */
+export function highlight(sentence, terms) {
+  const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  if (!terms.length) return esc(sentence);
+  const re = new RegExp(`\\b(${terms.map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})[a-z]*`, 'gi');
+  return esc(sentence).replace(re, '<mark>$&</mark>');
 }
-export const importedBlob = (id) => get(`mmt:deckblob:${id}`);

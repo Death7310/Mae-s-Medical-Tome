@@ -40,14 +40,15 @@ export function buildIndex(docs) {
       const q = Array.from(new Set(tokenize(query)));
       const scores = [];
       for (const d of tf) {
-        let s = 0;
+        let s = 0, matched = 0;
         for (const t of q) {
           const f = d.m.get(t);
           if (!f) continue;
+          matched++;
           const idf = Math.log(1 + (N - df.get(t) + 0.5) / (df.get(t) + 0.5));
           s += idf * (f * (k1 + 1)) / (f + k1 * (1 - b + (b * d.len) / avgLen));
         }
-        if (s > 0) scores.push({ id: d.id, score: s });
+        if (s > 0) scores.push({ id: d.id, score: s, matched, qlen: q.length });
       }
       scores.sort((a, b2) => b2.score - a.score);
       const top = scores.slice(0, k);

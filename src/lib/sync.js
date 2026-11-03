@@ -56,14 +56,14 @@ export function checksum(str) {
 }
 
 /** Pick the syncable subset of app state. */
-export function exportableState(state, device = '') {
-  const out = { v: 1, at: Date.now(), device };
+export function exportableState(state, device = '', extra = {}) {
+  const out = { v: 1, at: Date.now(), device, ...extra };
   for (const c of SYNC_COLLECTIONS) out[c] = state[c] || {};
   return out;
 }
 
-export function encodeState(state, device = '') {
-  const json = JSON.stringify(exportableState(state, device));
+export function encodeState(state, device = '', extra = {}) {
+  const json = JSON.stringify(exportableState(state, device, extra));
   const payload = b64urlEncode(deflateSync(strToU8(json), { level: 9 }));
   return `${CODE_PREFIX}.${checksum(payload)}.${payload}.`;
 }

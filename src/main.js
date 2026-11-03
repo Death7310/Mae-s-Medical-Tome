@@ -11,10 +11,10 @@ import * as sync from './views/sync.js';
 import * as settings from './views/settings.js';
 
 const routes = [
-  { path: 'home', view: home, label: 'Home', icon: 'home' },
+  { path: 'home', view: home, label: 'Library', icon: 'home' },
   { path: 'read', view: reader, label: 'Book', icon: 'book' },
   { path: 'slides', view: slides, label: 'Slides', icon: 'slides' },
-  { path: 'downloads', view: downloads, label: 'Downloads', icon: 'download' },
+  { path: 'downloads', view: downloads, label: 'Files', icon: 'download' },
   { path: 'sync', view: sync, label: 'Sync', icon: 'sync' },
   { path: 'settings', view: settings, label: 'Settings', icon: 'settings' },
 ];
@@ -76,12 +76,7 @@ async function boot() {
   onChange(applyPrefs);
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyPrefs);
   renderShell();
-  try {
-    await loadContent();
-  } catch (e) {
-    document.getElementById('view').replaceChildren(h('div', { class: 'card' }, h('h2', {}, 'Content not available'), h('p', {}, 'The book content could not be loaded. If this is the first time you open the app, you need an internet connection once. Error: ', String(e.message))));
-    return;
-  }
+  try { await loadContent(); } catch (e) { console.error('library load failed', e); }
   window.addEventListener('hashchange', route);
   if (!location.hash) location.replace('#/home');
   await route();

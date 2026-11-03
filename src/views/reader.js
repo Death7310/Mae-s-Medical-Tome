@@ -5,6 +5,7 @@ import { practiceBox } from './practice.js';
 
 export async function render(root, params) {
   const book = content.book;
+  if (!book) { root.replaceChildren(h('div', { class: 'card' }, h('h2', {}, 'No book loaded'), h('p', {}, h('a', { href: '#/home' }, 'Load your book in the Library'), ' and it will appear here, split into chapters and sections.'))); return; }
   const st = getState();
   let chapterId = params[0] || st.progress.lastBook?.chapter || book.chapters[0].id;
   let chapter = chapterById(chapterId) || book.chapters[0];

@@ -25,6 +25,19 @@ Rules
 Respond with JSON only, no markdown fences, in exactly this shape:
 {"verdict":"starting|developing|close|complete","correct":["..."],"to_fix":["..."],"language":[{"quote":"...","fix":"...","why":"..."}],"next_step":"...","encouragement":"..."}`;
 
+/** Short grounded explanation of how a slide relates to the given book passages. */
+export async function explainWithCoach({ slideTitle, slideText, passages }) {
+  const apiKey = (pref('aiKey', '') || '').trim();
+  if (!apiKey) throw new Error('No API key set. Add one under Settings → AI coach.');
+  const { default: Anthropic } = await import('@anthropic-ai/sdk');
+  const client = new Anthropic({ apiKey, dangerouslyAllowBrowser: true, maxRetries: 1, timeout: 90_000 });
+  const system = 'You explain lecture slides to a medical student using ONLY the textbook passages provided. Write two short paragraphs in plain, precise English: first what the slide is claiming and which passage supports each claim, then the mechanism or reasoning the passages give, with the book\'s own terminology. If the passages do not cover part of the slide, say exactly that. No bullet points, no headings, no facts from outside the passages, at most 160 words.';
+  const user = `<slide title="${slideTitle || ''}">\n${slideText || ''}\n</slide>\n\n<book_passages>\n${passages.map((t, i) => `<passage index="${i + 1}">\n${t}\n</passage>`).join('\n\n')}\n</book_passages>`;
+  const res = await client.beta.messages.create({ model: pref('aiModel', DEFAULT_MODEL), max_tokens: 1200, betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default', output_config: { effort: 'low' }, system: [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }], messages: [{ role: 'user', content: user }] });
+  if (res.stop_reason === 'refusal') throw new Error('The coach declined to answer this one.');
+  return res.content.filter((b) => b.type === 'text').map((b) => b.text).join('').trim();
+}
+
 export async function askCoach({ question, answer, sectionTexts, attempt }) {
   const apiKey = (pref('aiKey', '') || '').trim();
   if (!apiKey) throw new Error('No API key set. Add one under Settings → AI coach.');
