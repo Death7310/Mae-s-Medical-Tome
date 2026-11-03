@@ -221,3 +221,4 @@ mark { background: var(--warn-soft); color: inherit; padding: 0 .1em; border-rad
 .stage .fallback.text ul { padding-left: 1.2em; }
 .stage .fallback.text li { margin: .25em 0; }
 .explain p { margin: .3rem 0; }
+.grid.slots { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); margin-top: 1rem; }
