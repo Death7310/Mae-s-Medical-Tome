@@ -1,0 +1,8 @@
+node_modules/
+dist/
+public/content/
+public/downloads/
+dev-dist/
+.DS_Store
+*.log
+test-results/

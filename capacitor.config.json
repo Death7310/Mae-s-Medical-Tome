@@ -1,0 +1,6 @@
+{
+  "appId": "com.mae.medicaltome",
+  "appName": "Mae's Medical Tome",
+  "webDir": "dist",
+  "android": { "allowMixedContent": false }
+}
