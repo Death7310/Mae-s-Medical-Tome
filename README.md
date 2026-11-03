@@ -52,6 +52,13 @@ Any static host works (Netlify, Cloudflare Pages, a folder on a web server). Set
 
 The offline check is deterministic. Coverage is measured against the terms that distinguish the linked section from the rest of the book; writing checks are rules. It cannot judge whether a paragraph is *true* beyond vocabulary, and it cannot catch every grammatical error. The AI coach exists for exactly that judgement. Chapter detection from PDFs is heuristic: bookmarks are exact, heading sizes usually work for typeset textbooks, and page groups always work but carry no meaning. Scanned PDFs need OCR first.
 
+## Updating the app
+
+Every push rebuilds both the web app and the APK. Inside the app, Settings → Updates shows the running build and a **Check for updates** button; the app also checks on launch (at most every six hours) and shows a banner.
+
+- **Web / installed PWA**: "Update now" fetches the new service worker and reloads. A few seconds, nothing stored is touched.
+- **Android APK**: "Download and install" fetches the newest APK from the project's releases and hands it to Android's installer, which asks for one confirmation. Because every build is signed with the same key, it installs over the old one and keeps the book, slides, notes and progress. Android does not let a sideloaded app replace itself without that tap.
+
 ## How sync works, and its limits
 
 The sync code is your study data serialised to JSON, compressed, base64url-encoded and wrapped as `MMT1.<checksum>.<payload>.`. Typical size is a few hundred characters to a few kilobytes. It is not encrypted; treat it like the notes it contains. Merging is per item by timestamp, so syncing in both directions whenever you switch devices keeps both in step. What is **not** in the code: the book and slide files themselves (load the same files on each device; the code carries their fingerprints and warns if they differ) and appearance settings.

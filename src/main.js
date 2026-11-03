@@ -9,6 +9,7 @@ import * as slides from './views/slides.js';
 import * as downloads from './views/downloads.js';
 import * as sync from './views/sync.js';
 import * as settings from './views/settings.js';
+import { updates, onUpdates, autoCheck, applyUpdate } from './lib/updates.js';
 
 const routes = [
   { path: 'home', view: home, label: 'Library', icon: 'home' },
@@ -41,12 +42,22 @@ function navLinks(cls) {
   return routes.map((r) => h('a', { href: `#/${r.path}`, class: `${cls}${path === r.path ? ' active' : ''}`, 'aria-current': path === r.path ? 'page' : null }, icon(r.icon), h('span', {}, r.label)));
 }
 
+function drawUpdateBanner() {
+  const host = document.getElementById('update-banner');
+  if (!host) return;
+  const a = updates.available;
+  if (!a) { host.replaceChildren(); return; }
+  const btn = h('button', { class: 'btn sm primary', onclick: async () => { btn.disabled = true; btn.textContent = a.kind === 'apk' ? 'Opening installer…' : 'Updating…'; await applyUpdate(); } }, a.kind === 'apk' ? 'Download and install' : 'Update now');
+  host.replaceChildren(h('div', { class: 'update-banner' }, h('span', {}, a.kind === 'apk' ? `A newer version of the app is available (${a.sha}).` : `A new version is available (${a.sha}). It installs in a few seconds and keeps your data.`), btn, h('a', { href: '#/settings', class: 'small' }, 'Details')));
+}
+
 function renderShell() {
   const root = document.getElementById('app');
   root.replaceChildren(
     h('header', { class: 'topbar' },
       h('a', { class: 'brand', href: '#/home' }, icon('book'), "Mae's Medical Tome"),
       h('nav', { id: 'topnav', 'aria-label': 'Main' }, navLinks(''))),
+    h('div', { id: 'update-banner' }),
     h('main', { id: 'view' }),
     h('nav', { class: 'bottomnav', id: 'bottomnav', 'aria-label': 'Main' }, navLinks('')),
   );
@@ -84,8 +95,12 @@ async function boot() {
   window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); app.installPrompt = e; window.dispatchEvent(new CustomEvent('mmt:installable')); });
   window.addEventListener('appinstalled', () => { app.installPrompt = null; toast('Installed. You can now open Medical Tome from your home screen or Start menu.', 'ok', 5000); });
 
+  onUpdates(drawUpdateBanner);
+  setTimeout(autoCheck, 4000);
+  window.addEventListener('online', () => autoCheck());
   app.updateSW = registerSW({
     immediate: true,
+    onRegisteredSW(_url, registration) { updates.swRegistration = registration || null; },
     onNeedRefresh() {
       const t = h('div', { class: 'toast show', style: { pointerEvents: 'auto' } }, 'A new version is ready. ', h('button', { class: 'btn sm primary', onclick: () => app.updateSW(true) }, 'Reload'));
       let host = document.getElementById('toasts'); if (!host) { host = h('div', { id: 'toasts' }); document.body.append(host); }

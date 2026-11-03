@@ -222,3 +222,7 @@ mark { background: var(--warn-soft); color: inherit; padding: 0 .1em; border-rad
 .stage .fallback.text li { margin: .25em 0; }
 .explain p { margin: .3rem 0; }
 .grid.slots { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); margin-top: 1rem; }
+
+.update-banner { max-width: 1200px; margin: .75rem auto 0; padding: .6rem 1rem; display: flex; gap: .75rem; align-items: center; flex-wrap: wrap; background: var(--ok-soft); color: var(--ok); border: 1px solid var(--ok); border-radius: 10px; margin-left: max(16px, auto); margin-right: max(16px, auto); }
+@media (max-width: 1232px) { .update-banner { margin-left: 16px; margin-right: 16px; } }
+.update-banner a { color: inherit; }

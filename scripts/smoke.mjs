@@ -233,6 +233,23 @@ async function run(label, viewport) {
   await shot(page, `${label}-reader.png`);
   await noOverflow(page, `${label} reader`);
 
+  // --- updates: same version → "latest"; newer version.json → banner + Update button
+  await page.goto(base + '#/settings');
+  await page.waitForSelector('h2:has-text("Updates")');
+  check(/This version: 0\.1\.0/.test(await page.locator('.card', { hasText: 'Updates' }).textContent()), `${label}: settings shows the running build`);
+  await page.locator('button', { hasText: 'Check for updates' }).click();
+  await page.waitForFunction(() => /latest version/.test(document.querySelector('.card h2')?.closest('main')?.textContent || ''));
+  check(true, `${label}: check reports latest version when server matches`);
+  const vpath = path.join(DIST, 'version.json');
+  const original = await fs.readFile(vpath, 'utf8');
+  await fs.writeFile(vpath, JSON.stringify({ ...JSON.parse(original), sha: 'abc1234', fullSha: 'abc1234abc1234', builtAt: new Date(Date.now() + 60000).toISOString(), buildNumber: 999 }));
+  await page.locator('button', { hasText: 'Check for updates' }).click();
+  await page.waitForSelector('#update-banner .update-banner');
+  check(/abc1234/.test(await page.locator('#update-banner').textContent()) && (await page.locator('#update-banner button', { hasText: 'Update now' }).count()) === 1, `${label}: newer version → banner with "Update now"`);
+  check((await page.locator('.card', { hasText: 'Updates' }).locator('button', { hasText: 'Update now' }).count()) === 1, `${label}: settings offers "Update now"`);
+  await shot(page, `${label}-update.png`);
+  await fs.writeFile(vpath, original);
+
   const swOk = await page.evaluate(async () => { const r = await navigator.serviceWorker?.ready; return !!r?.active; });
   check(swOk, `${label}: service worker active`);
   const realErrors = errors.filter((e) => !/favicon/.test(e));
